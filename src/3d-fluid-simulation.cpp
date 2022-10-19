@@ -397,7 +397,7 @@ int main()
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_3D, velocity_slab.tex);
         glUniform1i(glGetUniformLocation(advection_shader.Program, "VelocityTexture"), 1);
-        glUniform1f(glGetUniformLocation(advection_shader.Program, "timeStep"), timeStep);
+        glUniform1f(glGetUniformLocation(advection_shader.Program, "timeStep"), deltaTime);
         glUniform3fv(glGetUniformLocation(advection_shader.Program, "InverseSize"), 1, glm::value_ptr(inverseSize));
 
         glDrawArraysInstanced(GL_TRIANGLES, 0, 6, GRID_DEPTH);
@@ -423,30 +423,36 @@ int main()
         SwapSlabs(&temp_pressure_divergence_slab, &divergence_slab);
 
         // we update the pressure texture
-        // jacobi_shader.Use();
+        jacobi_shader.Use();
 
-        // for(int i = 0; i < pressureIterations; i++)
-        // {
-        //     glBindFramebuffer(GL_FRAMEBUFFER, temp_pressure_divergence_slab.fbo);
+        glBindFramebuffer(GL_FRAMEBUFFER, pressure_slab.fbo);
+        glClear(GL_COLOR_BUFFER_BIT);
 
-        //     glActiveTexture(GL_TEXTURE1);
-        //     glBindTexture(GL_TEXTURE_3D, divergence_slab.tex);
-        //     glUniform1i(glGetUniformLocation(jacobi_shader.Program, "DivergenceTexture"), 1);
+        for(int i = 0; i < pressureIterations; i++)
+        {
+            glBindFramebuffer(GL_FRAMEBUFFER, temp_pressure_divergence_slab.fbo);
 
-        //     glActiveTexture(GL_TEXTURE2);
-        //     glBindTexture(GL_TEXTURE_3D, pressure_slab.tex);
-        //     glUniform1i(glGetUniformLocation(jacobi_shader.Program, "PressureTexture"), 2);
+            glActiveTexture(GL_TEXTURE1);
+            glBindTexture(GL_TEXTURE_3D, divergence_slab.tex);
+            glUniform1i(glGetUniformLocation(jacobi_shader.Program, "Divergence"), 1);
 
-        //     glUniform3fv(glGetUniformLocation(jacobi_shader.Program, "InverseSize"), 1, glm::value_ptr(inverseSize));
+            glActiveTexture(GL_TEXTURE2);
+            glBindTexture(GL_TEXTURE_3D, pressure_slab.tex);
+            glUniform1i(glGetUniformLocation(jacobi_shader.Program, "Pressure"), 2);
 
-        //     glDrawArraysInstanced(GL_TRIANGLES, 0, 6, GRID_DEPTH);
+            glUniform3fv(glGetUniformLocation(jacobi_shader.Program, "InverseSize"), 1, glm::value_ptr(inverseSize));
 
-        //     glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_3D, 0);
-        //     glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_3D, 0);
-        //     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            glDrawArraysInstanced(GL_TRIANGLES, 0, 6, GRID_DEPTH);
 
-        //     SwapSlabs(&temp_pressure_divergence_slab, &pressure_slab);
-        // }
+            // glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_3D, 0);
+            // glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_3D, 0);
+            // glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+            SwapSlabs(&temp_pressure_divergence_slab, &pressure_slab);
+        }
+
+        glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_3D, 0);
+        glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_3D, 0);
 
         // glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_3D, 0);
         // glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_3D, 0);
@@ -455,7 +461,7 @@ int main()
         // we apply the external forces
         glm::vec3 placeholder_force = glm::vec3(1, 0, 0) * 5.0f;
         glm::vec3 force_center = glm::vec3(GRID_WIDTH / 2.0f, GRID_HEIGHT / 4.0f, GRID_DEPTH / 2.0f);
-        std::cout << "force_center: " << force_center.x << " " << force_center.y << " " << force_center.z << std::endl;
+        // std::cout << "force_center: " << force_center.x << " " << force_center.y << " " << force_center.z << std::endl;
         float force_radius = 5.0f;
 
         external_forces_shader.Use();
@@ -464,7 +470,7 @@ int main()
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_3D, velocity_slab.tex);
         glUniform1i(glGetUniformLocation(external_forces_shader.Program, "VelocityTexture"), 0);
-        glUniform1f(glGetUniformLocation(external_forces_shader.Program, "timeStep"), timeStep);
+        glUniform1f(glGetUniformLocation(external_forces_shader.Program, "timeStep"), deltaTime);
         glUniform3fv(glGetUniformLocation(external_forces_shader.Program, "InverseSize"), 1, glm::value_ptr(inverseSize));
         glUniform3fv(glGetUniformLocation(external_forces_shader.Program, "force"), 1, glm::value_ptr(placeholder_force));
         glUniform3fv(glGetUniformLocation(external_forces_shader.Program, "center"), 1, glm::value_ptr(force_center));
@@ -473,34 +479,28 @@ int main()
         glDrawArraysInstanced(GL_TRIANGLES, 0, 6, GRID_DEPTH);
 
         glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_3D, 0);
-        // glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-        // std::cout << "-pre swap: velocity slab = {" << velocity_slab.fbo << " , " << velocity_slab.tex << "}" << std::endl;
-        // std::cout << "-pre swap: temp velocity slab = {" << temp_velocity_slab.fbo << " , " << temp_velocity_slab.tex << "}" << std::endl;
         SwapSlabs(&velocity_slab, &temp_velocity_slab);
-        // std::cout << "-post swap: velocity slab = {" << velocity_slab.fbo << " , " << velocity_slab.tex << "}" << std::endl;
-        // std::cout << "-post swap: temp velocity slab = {" << temp_velocity_slab.fbo << " , " << temp_velocity_slab.tex << "}" << std::endl;
 
         // we apply the pressure projection
-        // projection_shader.Use();
-        // glBindFramebuffer(GL_FRAMEBUFFER, temp_velocity_slab.fbo);
-        // glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        // glActiveTexture(GL_TEXTURE0);
-        // glBindTexture(GL_TEXTURE_3D, velocity_slab.tex);
-        // glUniform1i(glGetUniformLocation(projection_shader.Program, "VelocityTexture"), 0);
-        // glActiveTexture(GL_TEXTURE1);
-        // glBindTexture(GL_TEXTURE_3D, pressure_slab.tex);
-        // glUniform1i(glGetUniformLocation(projection_shader.Program, "PressureTexture"), 1);
-        // glUniform3fv(glGetUniformLocation(projection_shader.Program, "InverseSize"), 1, glm::value_ptr(inverseSize));
+        projection_shader.Use();
+        glBindFramebuffer(GL_FRAMEBUFFER, temp_velocity_slab.fbo);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_3D, velocity_slab.tex);
+        glUniform1i(glGetUniformLocation(projection_shader.Program, "VelocityTexture"), 0);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_3D, pressure_slab.tex);
+        glUniform1i(glGetUniformLocation(projection_shader.Program, "PressureTexture"), 1);
+        glUniform3fv(glGetUniformLocation(projection_shader.Program, "InverseSize"), 1, glm::value_ptr(inverseSize));
 
-        // glDrawArraysInstanced(GL_TRIANGLES, 0, 6, GRID_DEPTH);
+        glDrawArraysInstanced(GL_TRIANGLES, 0, 6, GRID_DEPTH);
 
-        // SwapSlabs(&velocity_slab, &temp_velocity_slab);
+        SwapSlabs(&velocity_slab, &temp_velocity_slab);
 
-        // glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_3D, 0);
-        // glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_3D, 0);
-        // glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_3D, 0);
+        glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_3D, 0);
 
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glBindVertexArray(0);
 
 
