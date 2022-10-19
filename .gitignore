@@ -1,0 +1,65 @@
+# Prerequisites
+*.d
+
+# Compiled Object files and other temp files
+*.slo
+*.lo
+*.o
+*.obj
+*.ilk
+*.lib
+*.exp
+
+# Debug symbols
+*.pdb
+*.dSYM
+
+# Codelite
+.codelite
+*.mk
+Debug
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Executables
+*.exe
+*.out
+*.app
+
+# expex forward references with \gathertags
+*-tags.tex
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Icon must end with two \r
+Icon
+
+# Thumbnails
+._*
+
+# Files that might appear in the root of a volume
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Directories potentially created on remote AFP share
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# custom
+
+include/*
+!include/utils
+libs
+textures
+notes
