@@ -69,19 +69,21 @@ public:
         // Step 2: we compile the shaders
         GLuint vertex, fragment;
 
+        bool status = true;
+
         // Vertex Shader
         vertex = glCreateShader(GL_VERTEX_SHADER);
         glShaderSource(vertex, 1, &vShaderCode, NULL);
         glCompileShader(vertex);
         // check compilation errors
-        checkCompileErrors(vertex, "VERTEX");
+        status = checkCompileErrors(vertex, "VERTEX");
 
         // Fragment Shader
         fragment = glCreateShader(GL_FRAGMENT_SHADER);
         glShaderSource(fragment, 1, &fShaderCode, NULL);
         glCompileShader(fragment);
         // check compilation errors
-        checkCompileErrors(fragment, "FRAGMENT");
+        status = checkCompileErrors(fragment, "FRAGMENT");
 
         // Step 3: Shader Program creation
         this->Program = glCreateProgram();
@@ -89,7 +91,13 @@ public:
         glAttachShader(this->Program, fragment);
         glLinkProgram(this->Program);
         // check linking errors
-        checkCompileErrors(this->Program, "PROGRAM");
+        status = checkCompileErrors(this->Program, "PROGRAM");
+
+        if (!status)
+        {
+            std::cout<<vertexPath<<std::endl;
+            std::cout<<fragmentPath<<std::endl;
+        }
 
         // Step 4: we delete the shaders because they are linked to the Shader Program, and we do not need them anymore
         glDeleteShader(vertex);
