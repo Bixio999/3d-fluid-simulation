@@ -194,9 +194,35 @@ void Advect(Shader* advectionShader, Slab *velocity, Slab *source, Slab *dest, f
 }
 
 // execute buoyancy
-void Buoyancy(Slab *velocity, Slab *temperature, Slab *density, Slab *dest)
+void Buoyancy(Shader* buoyancyShader, Slab *velocity, Slab *temperature, Slab *density, Slab *dest, float ambientTemperature, float timeStep, float sigma, float kappa)
 {
+    buoyancyShader->Use();
 
+    glBindFramebuffer(GL_FRAMEBUFFER, dest->fbo);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_3D, velocity->tex);
+    glUniform1i(glGetUniformLocation(buoyancyShader->Program, "VelocityTexture"), 0);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_3D, temperature->tex);
+    glUniform1i(glGetUniformLocation(buoyancyShader->Program, "TemperatureTexture"), 1);
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_3D, density->tex);
+    glUniform1i(glGetUniformLocation(buoyancyShader->Program, "DensityTexture"), 2);
+
+    glUniform1f(glGetUniformLocation(buoyancyShader->Program, "timeStep"), timeStep);
+    glUniform1f(glGetUniformLocation(buoyancyShader->Program, "ambientTemperature"), ambientTemperature);
+    glUniform1f(glGetUniformLocation(buoyancyShader->Program, "smokeBuoyancy"), sigma);
+    glUniform1f(glGetUniformLocation(buoyancyShader->Program, "smokeWeight"), kappa);
+    glUniform3fv(glGetUniformLocation(buoyancyShader->Program, "InverseSize"), 1, glm::value_ptr(InverseSize));
+
+    glDrawArraysInstanced(GL_TRIANGLES, 0, 6, GRID_DEPTH);
+
+    glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_3D, 0);
+    glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_3D, 0);
+    glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_3D, 0);
+
+    SwapSlabs(velocity, dest);
 }
 
 // apply external forces
@@ -243,9 +269,24 @@ void AddDensity(Shader *dyeShader, Slab *density, Slab *dest, glm::vec3 position
 }
 
 // add temperature
-void AddTemperature(Shader *shader, Slab *temperature, glm::vec3 position, float radius, float color)
+void AddTemperature(Shader *dyeShader, Slab *temperature, Slab *dest, glm::vec3 position, float radius, float appliedTemperature)
 {
+    dyeShader->Use();
 
+    glBindFramebuffer(GL_FRAMEBUFFER, dest->fbo);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_3D, temperature->tex);
+    glUniform1i(glGetUniformLocation(dyeShader->Program, "TemperatureTexture"), 0);
+    glUniform3fv(glGetUniformLocation(dyeShader->Program, "InverseSize"), 1, glm::value_ptr(InverseSize));
+    glUniform3fv(glGetUniformLocation(dyeShader->Program, "center"), 1, glm::value_ptr(position));
+    glUniform1f(glGetUniformLocation(dyeShader->Program, "radius"), radius);
+    glUniform1f(glGetUniformLocation(dyeShader->Program, "temperature"), appliedTemperature);
+
+    glDrawArraysInstanced(GL_TRIANGLES, 0, 6, GRID_DEPTH);
+
+    glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_3D, 0);
+
+    SwapSlabs(temperature, dest);
 }
 
 // execute divergence
@@ -279,10 +320,10 @@ void Jacobi(Shader *jacobiShader, Slab *pressure, Slab *divergence, Slab *dest, 
         glBindFramebuffer(GL_FRAMEBUFFER, dest->fbo);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_3D, pressure->tex);
-        glUniform1i(glGetUniformLocation(jacobiShader->Program, "PressureTexture"), 0);
+        glUniform1i(glGetUniformLocation(jacobiShader->Program, "Pressure"), 0);
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_3D, divergence->tex);
-        glUniform1i(glGetUniformLocation(jacobiShader->Program, "DivergenceTexture"), 1);
+        glUniform1i(glGetUniformLocation(jacobiShader->Program, "Divergence"), 1);
         glUniform3fv(glGetUniformLocation(jacobiShader->Program, "InverseSize"), 1, glm::value_ptr(InverseSize));
 
         glDrawArraysInstanced(GL_TRIANGLES, 0, 6, GRID_DEPTH);

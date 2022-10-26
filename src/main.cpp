@@ -134,16 +134,22 @@ GLfloat deltaTime = 0.0f;
 GLfloat lastFrame = 0.0f;
 
 // parameters for simulation time step
-GLfloat timeStep = 0.4f;
+GLfloat timeStep = 0.25f;
 
 // Jacobi pressure solver iterations
 GLuint pressureIterations = 20;
 
+// Buoyancy parameters
+GLfloat ambientTemperature = 0.0f;
+GLfloat ambientBuoyancy = 0.8f;
+GLfloat ambientWeight = 0.0f;
+
 // Dissipation factors
 // GLfloat velocityDissipation = 2.0f;
 // GLfloat densityDissipation = 1.3f;
-GLfloat velocityDissipation = 0.6f;
-GLfloat densityDissipation = 1.0f;
+GLfloat velocityDissipation = 0.9f;
+GLfloat densityDissipation = 0.9f;
+GLfloat temperatureDissipation = 0.9f;
 
 // rotation angle on Y axis
 GLfloat orientationY = 0.0f;
@@ -247,8 +253,10 @@ int main()
     Shader illumination_shader = Shader("src/shaders/21_ggx_tex_shadow.vert", "src/shaders/22_ggx_tex_shadow.frag");
 
     Shader advectionShader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom"  ,"src/shaders/simulation/advection.frag");
+    Shader buoyancyShader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom"  ,"src/shaders/simulation/buoyancy.frag");
     Shader divergenceShader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/simulation/divergence.frag");
     Shader jacobiShader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/simulation/jacobi_pressure.frag");
+    Shader temperatureShader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/simulation/add_temperature.frag");
     Shader externalForcesShader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/simulation/apply_force.frag");
     Shader pressureShader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/simulation/pressure_projection.frag");
     Shader dyeShader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/simulation/add_dye.frag");
@@ -274,8 +282,8 @@ int main()
 
     /////////////////// CREATION OF BUFFERS FOR THE SIMULATION GRID /////////////////////////////////////////
     // Grid dimensions
-    // const GLuint GRID_WIDTH = 200, GRID_HEIGHT = 200, GRID_DEPTH = 200;
-    const GLuint GRID_WIDTH = 100, GRID_HEIGHT = 100, GRID_DEPTH = 100;
+    const GLuint GRID_WIDTH = 200, GRID_HEIGHT = 200, GRID_DEPTH = 200;
+    // const GLuint GRID_WIDTH = 100, GRID_HEIGHT = 100, GRID_DEPTH = 100;
     std::cout << "ciaone2" << std::endl;
 
     SetGridSize(GRID_WIDTH, GRID_HEIGHT, GRID_DEPTH);
@@ -289,6 +297,8 @@ int main()
 
     Slab density_slab = CreateSlab(GRID_WIDTH, GRID_HEIGHT, GRID_DEPTH, 1);
     std::cout << "Created density grid = {" << density_slab.fbo << " , " << density_slab.tex << "}" << std::endl;
+    Slab temperature_slab = CreateSlab(GRID_WIDTH, GRID_HEIGHT, GRID_DEPTH, 1);
+    std::cout << "Created temperature grid = {" << temperature_slab.fbo << " , " << temperature_slab.tex << "}" << std::endl;
 
     /////////////////// CREATION OF TEMPORARY BUFFERS FOR THE SIMULATION UPDATE /////////////////////////////////////////
 
@@ -365,18 +375,33 @@ int main()
         // advect density
         Advect(&advectionShader, &velocity_slab, &density_slab, &temp_pressure_divergence_slab, densityDissipation, timeStep);
 
-        // we apply the external forces
-        glm::vec3 placeholder_force = glm::vec3(-1, 0, 1) * 10.0f;
-        glm::vec3 force_center = glm::vec3(GRID_WIDTH / 2.0f, GRID_HEIGHT / 4.0f, GRID_DEPTH / 2.0f);
+        // advect temperature
+        Advect(&advectionShader, &velocity_slab, &temperature_slab, &temp_pressure_divergence_slab, temperatureDissipation, timeStep);
+
+        // we apply the external forces (buoyancy)
+        glm::vec3 placeholder_force = glm::vec3(-1, -1, 0) * 1.2f;
+        glm::vec3 force_center = glm::vec3(GRID_WIDTH / 2.0f, GRID_HEIGHT / 5.0f, GRID_DEPTH / 2.0f);
         float force_radius = 5.0f;
 
-        ApplyExternalForces(&externalForcesShader, &velocity_slab, &temp_velocity_slab, timeStep, placeholder_force, force_center, force_radius);
+        Buoyancy(&buoyancyShader, &velocity_slab, &temperature_slab, &density_slab, &temp_velocity_slab, ambientTemperature, timeStep, ambientBuoyancy, ambientWeight);
 
         // we increase density based on applied force
-        // float dyeColor = 1.2f;
-        float dyeColor = placeholder_force.length();
+        float dyeColor = 5.0f;
+        // float dyeColor = placeholder_force.length();
 
         AddDensity(&dyeShader, &density_slab, &temp_pressure_divergence_slab, force_center, force_radius, dyeColor);
+
+        AddTemperature(&temperatureShader, &temperature_slab, &temp_pressure_divergence_slab, force_center, force_radius, dyeColor);
+
+        force_center.y * 1.1f;
+        force_center.x -= GRID_WIDTH / 5.0f;
+        force_radius = 20.0f;
+        placeholder_force *= 2.5f;
+        ApplyExternalForces(&externalForcesShader, &velocity_slab, &temp_velocity_slab, timeStep, placeholder_force, force_center, force_radius);
+
+        force_center.x += 2 * GRID_WIDTH / 5.0f;
+        placeholder_force.x *= -1;
+        ApplyExternalForces(&externalForcesShader, &velocity_slab, &temp_velocity_slab, timeStep, placeholder_force, force_center, force_radius);
 
         // we update the divergence texture
         Divergence(&divergenceShader, &velocity_slab, &divergence_slab, &temp_pressure_divergence_slab);

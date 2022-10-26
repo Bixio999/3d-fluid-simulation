@@ -46,7 +46,7 @@ void EndSimulation();
 void Advect(Shader* advectionShader, Slab *velocity, Slab *source, Slab *dest, float dissipation, float timeStep);
 
 // execute buoyancy
-void Buoyancy(Shader* shader, Slab *velocity, Slab *temperature, Slab *density, Slab *dest);
+void Buoyancy(Shader* buoyancyShader, Slab *velocity, Slab *temperature, Slab *density, Slab *dest, float ambientTemperature, float timeStep, float sigma, float kappa);
 
 // execute divergence
 void Divergence(Shader* divergenceShader, Slab *velocity, Slab *divergence, Slab *dest);
@@ -61,7 +61,7 @@ void ApplyExternalForces(Shader* externalForcesShader, Slab *velocity, Slab *des
 void AddDensity(Shader* dyeShader, Slab *density, Slab *dest, glm::vec3 position, float radius, float color);
 
 // add temperature
-void AddTemperature(Shader* shader, Slab *temperature, glm::vec3 position, float radius, float color);
+void AddTemperature(Shader *dyeShader, Slab *temperature, Slab *dest, glm::vec3 position, float radius, float appliedTemperature);
 
 // apply pressure
 void ApplyPressure(Shader* pressureShader, Slab *velocity, Slab *pressure, Slab *dest);

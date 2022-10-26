@@ -5,8 +5,8 @@ out vec4 FragColor;
 uniform float timeStep;
 uniform vec3 InverseSize;
 
-uniform sampler3D VelocityTexture;
-uniform vec3 force;
+uniform sampler3D TemperatureTexture;
+uniform float temperature;
 uniform vec3 center;
 uniform float radius;
 
@@ -31,13 +31,13 @@ void main()
     // float gaussianSplat = exp(-1 * (dx + dy + dz) / (radius * radius));
     // FragColor = vec4(gaussianSplat, 0, 0, 1.0f);
 
-    vec3 vForce = force * gaussianSplat; 
-    vec3 finalVec = vForce + texture(VelocityTexture, fragCoord * InverseSize).xyz;
+    float appliedTemp = temperature * gaussianSplat; 
+    float finalTemp = appliedTemp + texture(TemperatureTexture, fragCoord * InverseSize).x;
 
     // finalVel = min(length(force), length(finalVel)) * normalize(finalVel);
 
     // vec3 finalVel = vForce;
 
-    FragColor = vec4(finalVec, 1.0);
+    FragColor = vec4(finalTemp, 0, 0, 1.0);
     // FragColor = vec3(1,0,0);
 }

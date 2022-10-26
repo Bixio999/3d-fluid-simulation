@@ -19,7 +19,7 @@ void main()
 {
     vec3 end = texture(RayDataTexture, InverseSize * gl_FragCoord.xy).xyz;
 
-    vec3 fluidColor = vec3(0.5, 0.0, 0.0);
+    vec3 fluidColor = vec3(1,1, 1);
     vec4 finalColor = vec4(0,0,0,0);
 
     vec3 start = ogPos * (grid_size - 1.0);
