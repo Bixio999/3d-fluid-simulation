@@ -34,6 +34,10 @@ void main()
     vec3 vForce = force * gaussianSplat; 
     vec3 finalVel = vForce + texture(VelocityTexture, fragCoord * InverseSize).xyz;
 
+    // finalVel = min(length(force), length(finalVel)) * normalize(finalVel);
+
+    // vec3 finalVel = vForce;
+
     FragColor = vec4(finalVel, 1.0f);
     // FragColor = vec3(1,0,0);
 }

@@ -19,7 +19,7 @@ void main()
 {
     vec3 end = texture(RayDataTexture, InverseSize * gl_FragCoord.xy).xyz;
 
-    vec3 fluidColor = vec3(1.0, 0.0, 0.0);
+    vec3 fluidColor = vec3(0.5, 0.0, 0.0);
     vec4 finalColor = vec4(0,0,0,0);
 
     vec3 start = ogPos * (grid_size - 1.0);
@@ -37,8 +37,15 @@ void main()
     {
         vec3 p = start + dir * i;
 
-        
-        sampledDensity = length(texture(DensityTexture, p).xyz);
+        // vec3 v = texture(DensityTexture, p).xyz;
+        // sampledDensity = length(v);
+
+        // v = normalize(v) * 255;
+
+        // finalColor.xyz = v;
+
+        // sampledDensity = length(texture(DensityTexture, p).xyz);
+        sampledDensity = texture(DensityTexture, p).x;
         finalColor.xyz += fluidColor * sampledDensity * (1.0 - finalColor.w);
         finalColor.w += sampledDensity * (1.0 - finalColor.w);
 

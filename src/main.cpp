@@ -87,17 +87,16 @@ positive Z axis points "outside" the screen
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
+// we include the fluid simulation functions
+#include "fluid-sim.h"
+
 // dimensions of application's window
 GLuint screenWidth = 1200, screenHeight = 900;
 
 // the rendering steps used in the application
 enum render_passes{ SHADOWMAP, RENDER};
 
-struct Slab
-{
-    GLuint fbo;
-    GLuint tex;
-};
+
 
 // callback functions for keyboard and mouse events
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode);
@@ -117,19 +116,10 @@ void SetupShader(int shader_program);
 void PrintCurrentShader(int subroutine);
 
 // in this application, we have isolated the models rendering using a function, which will be called in each rendering step
-void RenderObjects(Shader &shader, Model &planeModel, Model &cubeModel, Model &sphereModel, Model &bunnyModel, GLint render_pass, GLuint depthMap);
+void RenderObjects(Shader &shader, Model &planeModel, Model &sphereModel, Model &bunnyModel, GLint render_pass, GLuint depthMap);
 
 // load image from disk and create an OpenGL texture
 GLint LoadTexture(const char* path);
-
-// create a simulation grid slab
-Slab CreateSlab(GLuint width, GLuint height, GLuint depth, GLushort dimensions);
-
-// create slab with a 2d texture
-Slab Create2DSlab(GLuint width, GLuint height, GLushort dimensions);
-
-// swap the simulation grid slabs
-void SwapSlabs(Slab *slabA, Slab *slabB);
 
 // we initialize an array of booleans for each keyboard key
 bool keys[1024];
@@ -144,7 +134,7 @@ GLfloat deltaTime = 0.0f;
 GLfloat lastFrame = 0.0f;
 
 // parameters for simulation time step
-GLfloat timeStep = 0.25f;
+GLfloat timeStep = 0.4f;
 
 // Jacobi pressure solver iterations
 GLuint pressureIterations = 20;
@@ -256,18 +246,14 @@ int main()
     // we create the Shader Program used for objects (which presents different subroutines we can switch)
     Shader illumination_shader = Shader("src/shaders/21_ggx_tex_shadow.vert", "src/shaders/22_ggx_tex_shadow.frag");
 
-    Shader advection_shader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom"  ,"src/shaders/simulation/advection.frag");
-    Shader divergence_shader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/simulation/divergence.frag");
-    Shader jacobi_shader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/simulation/jacobi_pressure.frag");
-    Shader external_forces_shader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/simulation/apply_force.frag");
-    Shader projection_shader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/simulation/pressure_projection.frag");
-
-    Shader dye_shader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/simulation/add_dye.frag");
-
-    // Shader fluidTestRenderer = Shader("src/shaders/rendering/1_renderFluid.vert", "src/shaders/rendering/2_renderFluid.geom", "src/shaders/rendering/3_renderFluid.frag");
-
-    Shader raydata_back = Shader("src/shaders/rendering/raydata/raydata.vert", "src/shaders/rendering/raydata/raydata_back.frag");
-    Shader raydata_front = Shader("src/shaders/rendering/raydata/raydata.vert", "src/shaders/rendering/raydata/raydata_front.frag");
+    Shader advectionShader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom"  ,"src/shaders/simulation/advection.frag");
+    Shader divergenceShader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/simulation/divergence.frag");
+    Shader jacobiShader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/simulation/jacobi_pressure.frag");
+    Shader externalForcesShader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/simulation/apply_force.frag");
+    Shader pressureShader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/simulation/pressure_projection.frag");
+    Shader dyeShader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/simulation/add_dye.frag");
+    Shader raydataShader = Shader("src/shaders/rendering/raydata/raydata.vert", "src/shaders/rendering/raydata/raydata_back.frag");
+    Shader renderShader = Shader("src/shaders/rendering/raydata/raydata.vert", "src/shaders/rendering/raydata/raydata_front.frag");
 
     // we parse the Shader Program to search for the number and names of the subroutines.
     // the names are placed in the shaders vector
@@ -280,15 +266,19 @@ int main()
     textureID.push_back(LoadTexture("textures/marble-chess.jpg"));
 
     // we load the model(s) (code of Model class is in include/utils/model.h)
-    Model cubeModel("models/cube.obj");
+    // Model cubeModel("models/cube.obj");
     Model sphereModel("models/sphere.obj");
     Model bunnyModel("models/bunny_lp.obj");
     Model planeModel("models/plane.obj");
+    Model cubeModel("models/cube.obj");
 
     /////////////////// CREATION OF BUFFERS FOR THE SIMULATION GRID /////////////////////////////////////////
     // Grid dimensions
-    const GLuint GRID_WIDTH = 200, GRID_HEIGHT = 200, GRID_DEPTH = 200;
-    // const GLuint GRID_WIDTH = 100, GRID_HEIGHT = 100, GRID_DEPTH = 100;
+    // const GLuint GRID_WIDTH = 200, GRID_HEIGHT = 200, GRID_DEPTH = 200;
+    const GLuint GRID_WIDTH = 100, GRID_HEIGHT = 100, GRID_DEPTH = 100;
+    std::cout << "ciaone2" << std::endl;
+
+    SetGridSize(GRID_WIDTH, GRID_HEIGHT, GRID_DEPTH);
 
     Slab velocity_slab = CreateSlab(GRID_WIDTH, GRID_HEIGHT, GRID_DEPTH, 3);
     std::cout << "Created velocity grid = {" << velocity_slab.fbo << " , " << velocity_slab.tex << "}" << std::endl;
@@ -307,49 +297,8 @@ int main()
     Slab temp_pressure_divergence_slab = CreateSlab(GRID_WIDTH, GRID_HEIGHT, GRID_DEPTH, 1);
     std::cout << "Created temp pressure divergence grid = {" << temp_pressure_divergence_slab.fbo << " , " << temp_pressure_divergence_slab.tex << "}" << std::endl;
 
-    /////////////////// CREATION OF VAO FOR SIMULATION RTT RENDERING QUAD /////////////////////////////////////////
-
-    GLuint quad_VAO;
-    GLuint quad_VBO;
-
-    glGenVertexArrays(1, &quad_VAO);
-    glBindVertexArray(quad_VAO);
-
-    short positions[] = { 
-        -1, -1, 
-         1, -1, 
-         1,  1,
-
-        -1, -1, 
-         1,  1, 
-        -1,  1 
-    };
-    glGenBuffers(1, &quad_VBO);
-    glBindBuffer(GL_ARRAY_BUFFER, quad_VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(positions), positions, GL_STATIC_DRAW);
-
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 2, GL_SHORT, GL_FALSE, 2 * sizeof(short), 0);
-
-    glBindVertexArray(0);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-    /////////////////// CREATION OF VAO FOR SIMULATION GRID RENDERING /////////////////////////////////////////
-
-    GLuint VaoCubeCenter;
-    glGenVertexArrays(1, &VaoCubeCenter);
-    glBindVertexArray(VaoCubeCenter);
-    float p[3] = {0, 0, 0};
-    GLuint vbo;
-    glGenBuffers(1, &vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(p), &p[0], GL_STATIC_DRAW);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), 0);
-
     /////////////////// CREATION OF BUFFER FOR THE RAYCASTING RAYDATA TEXTURE /////////////////////////////////////////
     Slab rayData = Create2DSlab(width, height, 4);
-    Slab temp_rayData = Create2DSlab(width, height, 4);
 
     /////////////////// CREATION OF BUFFER FOR THE  DEPTH MAP /////////////////////////////////////////
     // buffer dimension: too large -> performance may slow down if we have many lights; too small -> strong aliasing
@@ -384,6 +333,8 @@ int main()
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     ///////////////////////////////////////////////////////////////////
 
+    // Create shaders for fluid simulation
+    InitSimulation();
 
     // Projection matrix of the camera: FOV angle, aspect ratio, near and far planes
     glm::mat4 projection = glm::perspective(45.0f, (float)screenWidth/(float)screenHeight, 0.1f, 10000.0f);
@@ -402,169 +353,42 @@ int main()
         // we apply FPS camera movements
         apply_camera_movements();
 
-        /////////////////// STEP 1 - UPDATE SIMULATION 3D TEXTURES  //////////////////////////////////////////////////////////////////////////
+        /////////////////// STEP 1 - UPDATE SIMULATION  //////////////////////////////////////////////////////////////////////////
         // we update the 3D textures with the new values of the simulation
 
-        glm::vec3 inverseSize = glm::vec3(1.0f / GRID_WIDTH, 1.0f / GRID_HEIGHT, 1.0f / GRID_DEPTH);
-
         // we bind the VAO for the quad and set up rendering
-        glBindVertexArray(quad_VAO);
-        glViewport(0,0, GRID_WIDTH, GRID_HEIGHT);
-        glDisable(GL_DEPTH_TEST);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        // advection phase
+        BeginSimulation();
 
         // advect velocity
-        advection_shader.Use();
-        glBindFramebuffer(GL_FRAMEBUFFER, temp_velocity_slab.fbo);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_3D, velocity_slab.tex);
-        glUniform1i(glGetUniformLocation(advection_shader.Program, "VelocityTexture"), 1);
-        glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_3D, velocity_slab.tex);
-        glUniform1i(glGetUniformLocation(advection_shader.Program, "SourceTexture"), 2);
-        glUniform1f(glGetUniformLocation(advection_shader.Program, "timeStep"), timeStep);
-        glUniform3fv(glGetUniformLocation(advection_shader.Program, "InverseSize"), 1, glm::value_ptr(inverseSize));
-        glUniform1f(glGetUniformLocation(advection_shader.Program, "dissipation"), velocityDissipation);
-
-        glDrawArraysInstanced(GL_TRIANGLES, 0, 6, GRID_DEPTH);
-
-        glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_3D, 0);
-        glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_3D, 0);
-
-        SwapSlabs(&velocity_slab, &temp_velocity_slab);
+        Advect(&advectionShader, &velocity_slab, &velocity_slab, &temp_velocity_slab, velocityDissipation, timeStep);
 
         // advect density
-        glBindFramebuffer(GL_FRAMEBUFFER, temp_pressure_divergence_slab.fbo);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_3D, velocity_slab.tex);
-        glUniform1i(glGetUniformLocation(advection_shader.Program, "VelocityTexture"), 1);
-        glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_3D, density_slab.tex);
-        glUniform1i(glGetUniformLocation(advection_shader.Program, "SourceTexture"), 2);
-        glUniform1f(glGetUniformLocation(advection_shader.Program, "timeStep"), timeStep);
-        glUniform3fv(glGetUniformLocation(advection_shader.Program, "InverseSize"), 1, glm::value_ptr(inverseSize));
-        glUniform1f(glGetUniformLocation(advection_shader.Program, "dissipation"), densityDissipation);
-
-        glDrawArraysInstanced(GL_TRIANGLES, 0, 6, GRID_DEPTH);
-
-        glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_3D, 0);
-        glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_3D, 0);
-
-        SwapSlabs(&density_slab, &temp_pressure_divergence_slab);
-
-        // we update the divergence texture
-        divergence_shader.Use();
-        glBindFramebuffer(GL_FRAMEBUFFER, temp_pressure_divergence_slab.fbo);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_3D, velocity_slab.tex);
-        glUniform1i(glGetUniformLocation(divergence_shader.Program, "VelocityTexture"), 1);
-        glUniform3fv(glGetUniformLocation(divergence_shader.Program, "InverseSize"), 1, glm::value_ptr(inverseSize));
-
-        glDrawArraysInstanced(GL_TRIANGLES, 0, 6, GRID_DEPTH);
-
-        glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_3D, 0);
-        // glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-        SwapSlabs(&temp_pressure_divergence_slab, &divergence_slab);
-
-        // we update the pressure texture
-        jacobi_shader.Use();
-
-        glBindFramebuffer(GL_FRAMEBUFFER, pressure_slab.fbo);
-        glClear(GL_COLOR_BUFFER_BIT);
-
-        for(int i = 0; i < pressureIterations; i++)
-        {
-            glBindFramebuffer(GL_FRAMEBUFFER, temp_pressure_divergence_slab.fbo);
-
-            glActiveTexture(GL_TEXTURE1);
-            glBindTexture(GL_TEXTURE_3D, divergence_slab.tex);
-            glUniform1i(glGetUniformLocation(jacobi_shader.Program, "Divergence"), 1);
-
-            glActiveTexture(GL_TEXTURE2);
-            glBindTexture(GL_TEXTURE_3D, pressure_slab.tex);
-            glUniform1i(glGetUniformLocation(jacobi_shader.Program, "Pressure"), 2);
-
-            glUniform3fv(glGetUniformLocation(jacobi_shader.Program, "InverseSize"), 1, glm::value_ptr(inverseSize));
-
-            glDrawArraysInstanced(GL_TRIANGLES, 0, 6, GRID_DEPTH);
-
-            SwapSlabs(&temp_pressure_divergence_slab, &pressure_slab);
-        }
-
-        glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_3D, 0);
-        glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_3D, 0);
+        Advect(&advectionShader, &velocity_slab, &density_slab, &temp_pressure_divergence_slab, densityDissipation, timeStep);
 
         // we apply the external forces
-        glm::vec3 placeholder_force = glm::vec3(1, 0, 0) * 1.2f;
+        glm::vec3 placeholder_force = glm::vec3(-1, 0, 1) * 10.0f;
         glm::vec3 force_center = glm::vec3(GRID_WIDTH / 2.0f, GRID_HEIGHT / 4.0f, GRID_DEPTH / 2.0f);
-        // std::cout << "force_center: " << force_center.x << " " << force_center.y << " " << force_center.z << std::endl;
         float force_radius = 5.0f;
 
-        external_forces_shader.Use();
-        glBindFramebuffer(GL_FRAMEBUFFER, temp_velocity_slab.fbo);
-        // glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_3D, velocity_slab.tex);
-        glUniform1i(glGetUniformLocation(external_forces_shader.Program, "VelocityTexture"), 1);
-        glUniform1f(glGetUniformLocation(external_forces_shader.Program, "timeStep"), timeStep);
-        glUniform3fv(glGetUniformLocation(external_forces_shader.Program, "InverseSize"), 1, glm::value_ptr(inverseSize));
-        glUniform3fv(glGetUniformLocation(external_forces_shader.Program, "force"), 1, glm::value_ptr(placeholder_force));
-        glUniform3fv(glGetUniformLocation(external_forces_shader.Program, "center"), 1, glm::value_ptr(force_center));
-        glUniform1f(glGetUniformLocation(external_forces_shader.Program, "radius"), force_radius);
-
-        glDrawArraysInstanced(GL_TRIANGLES, 0, 6, GRID_DEPTH);
-
-        glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_3D, 0);
-
-        SwapSlabs(&velocity_slab, &temp_velocity_slab);
+        ApplyExternalForces(&externalForcesShader, &velocity_slab, &temp_velocity_slab, timeStep, placeholder_force, force_center, force_radius);
 
         // we increase density based on applied force
-        float dyeColor = 1.2f;
-        // float dyeColor = placeholder_force.length();
+        // float dyeColor = 1.2f;
+        float dyeColor = placeholder_force.length();
 
-        dye_shader.Use();
-        glBindFramebuffer(GL_FRAMEBUFFER, temp_pressure_divergence_slab.fbo);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_3D, density_slab.tex);
-        glUniform1i(glGetUniformLocation(dye_shader.Program, "DensityTexture"), 1);
-        glUniform1f(glGetUniformLocation(dye_shader.Program, "timeStep"), timeStep);
-        glUniform3fv(glGetUniformLocation(dye_shader.Program, "InverseSize"), 1, glm::value_ptr(inverseSize));
-        // glUniform3fv(glGetUniformLocation(dye_shader.Program, "dyeIntensity"), 1, glm::value_ptr(placeholder_force));
-        glUniform1f(glGetUniformLocation(dye_shader.Program, "dyeIntensity"), dyeColor);
-        glUniform3fv(glGetUniformLocation(dye_shader.Program, "center"), 1, glm::value_ptr(force_center));
-        glUniform1f(glGetUniformLocation(dye_shader.Program, "radius"), force_radius);
+        AddDensity(&dyeShader, &density_slab, &temp_pressure_divergence_slab, force_center, force_radius, dyeColor);
 
-        glDrawArraysInstanced(GL_TRIANGLES, 0, 6, GRID_DEPTH);
+        // we update the divergence texture
+        Divergence(&divergenceShader, &velocity_slab, &divergence_slab, &temp_pressure_divergence_slab);
 
-        glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_3D, 0);
-
-        SwapSlabs(&density_slab, &temp_pressure_divergence_slab);
+        // we update the pressure texture
+        Jacobi(&jacobiShader, &pressure_slab, &divergence_slab, &temp_pressure_divergence_slab, pressureIterations);
 
         // we apply the pressure projection
-        projection_shader.Use();
-        glBindFramebuffer(GL_FRAMEBUFFER, temp_velocity_slab.fbo);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_3D, velocity_slab.tex);
-        glUniform1i(glGetUniformLocation(projection_shader.Program, "VelocityTexture"), 1);
-        glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_3D, pressure_slab.tex);
-        glUniform1i(glGetUniformLocation(projection_shader.Program, "PressureTexture"), 2);
-        glUniform3fv(glGetUniformLocation(projection_shader.Program, "InverseSize"), 1, glm::value_ptr(inverseSize));
+        ApplyPressure(&pressureShader, &velocity_slab, &pressure_slab, &temp_velocity_slab);
 
-        glDrawArraysInstanced(GL_TRIANGLES, 0, 6, GRID_DEPTH);
-
-        SwapSlabs(&velocity_slab, &temp_velocity_slab);
-
-        glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_3D, 0);
-        glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_3D, 0);
-
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        glBindVertexArray(0);
-
-
+        // reset the state
+        EndSimulation();
 
         /////////////////// STEP 1 - SHADOW MAP: RENDERING OF SCENE FROM LIGHT POINT OF VIEW ////////////////////////////////////////////////
         glEnable(GL_DEPTH_TEST);
@@ -590,20 +414,12 @@ int main()
         glClear(GL_DEPTH_BUFFER_BIT);
 
         // we render the scene, using the shadow shader
-        RenderObjects(shadow_shader, planeModel, cubeModel, sphereModel, bunnyModel, SHADOWMAP, depthMap);
-
-
-
+        RenderObjects(shadow_shader, planeModel, sphereModel, bunnyModel, SHADOWMAP, depthMap);
 
         /////////////////// STEP 1 - RAYDATA: RENDERING VOLUME FOR RAYMARCHING INFO ////////////////////////////////////////////////
         // we render the volume for raymarching
 
-        glEnable(GL_CULL_FACE);
-
         glViewport(0, 0, width, height);
-
-        // glClearColor(0,0,0,1);
-        // glClearDepth(0);
 
         view = camera.GetViewMatrix();
 
@@ -611,58 +427,14 @@ int main()
         cubeModelMatrix = glm::mat4(1.0f);
         cubeNormalMatrix = glm::mat3(1.0f);
         cubeModelMatrix = glm::translate(cubeModelMatrix, glm::vec3(0.0f, 0.0f, 1.0f));
+        // cubeModelMatrix = glm::scale(cubeModelMatrix, glm::vec3(1.0f, 1.0f, 1.0f));
         cubeNormalMatrix = glm::inverseTranspose(glm::mat3(cubeModelMatrix));
 
         // we create the raydata texture
 
         // we render the back faces of the volume to compute max depth
-        raydata_back.Use();
-        glBindFramebuffer(GL_FRAMEBUFFER, temp_rayData.fbo);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        glUniformMatrix4fv(glGetUniformLocation(raydata_back.Program, "model"), 1, GL_FALSE, glm::value_ptr(cubeModelMatrix));
-        glUniformMatrix3fv(glGetUniformLocation(raydata_back.Program, "normalMatrix"), 1, GL_FALSE, glm::value_ptr(cubeNormalMatrix));
-        glUniformMatrix4fv(glGetUniformLocation(raydata_back.Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
-        glUniformMatrix4fv(glGetUniformLocation(raydata_back.Program, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
-        glUniform3fv(glGetUniformLocation(raydata_back.Program, "grid_size"), 1, glm::value_ptr(glm::vec3(GRID_WIDTH, GRID_HEIGHT, GRID_DEPTH)));
-
-        glCullFace(GL_FRONT);
-
-        cubeModel.Draw();
-
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        glDisable(GL_CULL_FACE);
-
-        // glEnable(GL_CULL_FACE);
-        // // glDisable(GL_BLEND);
-        // // glDisable(GL_DEPTH_TEST);
-
-        // raydata_front.Use();
-        // glBindFramebuffer(GL_FRAMEBUFFER, rayData.fbo);
-        // glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        // glActiveTexture(GL_TEXTURE1);
-        // glBindTexture(GL_TEXTURE_2D, temp_rayData.tex);
-        // glUniform1i(glGetUniformLocation(raydata_front.Program, "RayDataTexture"), 1);
-        // glActiveTexture(GL_TEXTURE2);
-        // glBindTexture(GL_TEXTURE_3D, density_slab.tex);
-        // glUniform1i(glGetUniformLocation(raydata_front.Program, "DensityTexture"), 2);
-        // glUniformMatrix4fv(glGetUniformLocation(raydata_front.Program, "model"), 1, GL_FALSE, glm::value_ptr(cubeModelMatrix));
-        // glUniformMatrix3fv(glGetUniformLocation(raydata_front.Program, "normalMatrix"), 1, GL_FALSE, glm::value_ptr(cubeNormalMatrix));
-        // glUniformMatrix4fv(glGetUniformLocation(raydata_front.Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
-        // glUniformMatrix4fv(glGetUniformLocation(raydata_front.Program, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
-        // glUniform2fv(glGetUniformLocation(raydata_front.Program, "InverseSize"), 1, glm::value_ptr(glm::vec2(1.0f / width, 1.0f / height)));
-        // glUniform3fv(glGetUniformLocation(raydata_front.Program, "grid_size"), 1, glm::value_ptr(glm::vec3(GRID_WIDTH, GRID_HEIGHT, GRID_DEPTH)));
-
-        // glCullFace(GL_BACK);
-        // cubeModel.Draw();
-
-        // glDisable(GL_CULL_FACE);
-        // // glDisable(GL_BLEND);
-        // glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_2D, 0);
-        // glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_3D, 0);
-        // glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
+        RayData(&raydataShader, cubeModel, &rayData, cubeModelMatrix, view, projection);
 
         // /////////////////// STEP 2 - SCENE RENDERING FROM CAMERA ////////////////////////////////////////////////
 
@@ -718,41 +490,13 @@ int main()
         glUniform1f(f0Location, F0);
 
         // we render the scene
-        RenderObjects(illumination_shader, planeModel, cubeModel, sphereModel, bunnyModel, RENDER, depthMap);
-
+        RenderObjects(illumination_shader, planeModel, sphereModel, bunnyModel, RENDER, depthMap);
 
         // we render the front faces of the volume to compute min depth and entry points
         
-        glEnable(GL_CULL_FACE);
-        // glDisable(GL_BLEND);
-        // glDisable(GL_DEPTH_TEST);
+        RenderFluid(&renderShader, cubeModel, cubeModelMatrix, view, projection, &rayData, &density_slab, glm::vec2(1.0f / width, 1.0f / height));
 
-        raydata_front.Use();
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        // glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, temp_rayData.tex);
-        glUniform1i(glGetUniformLocation(raydata_front.Program, "RayDataTexture"), 1);
-        glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_3D, velocity_slab.tex);
-        glUniform1i(glGetUniformLocation(raydata_front.Program, "DensityTexture"), 2);
-        glUniformMatrix4fv(glGetUniformLocation(raydata_front.Program, "model"), 1, GL_FALSE, glm::value_ptr(cubeModelMatrix));
-        glUniformMatrix3fv(glGetUniformLocation(raydata_front.Program, "normalMatrix"), 1, GL_FALSE, glm::value_ptr(cubeNormalMatrix));
-        glUniformMatrix4fv(glGetUniformLocation(raydata_front.Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
-        glUniformMatrix4fv(glGetUniformLocation(raydata_front.Program, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
-        glUniform2fv(glGetUniformLocation(raydata_front.Program, "InverseSize"), 1, glm::value_ptr(glm::vec2(1.0f / width, 1.0f / height)));
-        glUniform3fv(glGetUniformLocation(raydata_front.Program, "grid_size"), 1, glm::value_ptr(glm::vec3(GRID_WIDTH, GRID_HEIGHT, GRID_DEPTH)));
-
-        glCullFace(GL_BACK);
-        cubeModel.Draw();
-
-        glDisable(GL_CULL_FACE);
         glDisable(GL_BLEND);
-        glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_2D, 0);
-        glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_3D, 0);
-        // glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        // glClearColor(0,0,0,1.0f);
 
 
         /////////////////// STEP 3 - TEST RENDERING FOR 3D TEXTURE  ////////////////////////////////////////////////
@@ -795,7 +539,7 @@ int main()
 
 //////////////////////////////////////////
 // we render the objects. We pass also the current rendering step, and the depth map generated in the first step, which is used by the shaders of the second step
-void RenderObjects(Shader &shader, Model &planeModel, Model &cubeModel, Model &sphereModel, Model &bunnyModel, GLint render_pass, GLuint depthMap)
+void RenderObjects(Shader &shader, Model &planeModel, Model &sphereModel, Model &bunnyModel, GLint render_pass, GLuint depthMap)
 {
     // For the second rendering step -> we pass the shadow map to the shaders
     if (render_pass==RENDER)
@@ -1074,94 +818,8 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos)
 
 }
 
-Slab CreateSlab(GLuint width, GLuint height, GLuint depth, GLushort dimensions)
-{
-    GLuint fbo;
 
-    glGenFramebuffers(1, &fbo);
 
-    GLuint texture;
 
-    glGenTextures(1, &texture);
 
-    glBindTexture(GL_TEXTURE_3D, texture);
 
-    switch(dimensions)
-    {
-        case 1: glTexImage3D(GL_TEXTURE_3D, 0, GL_R16F, width, height, depth, 0, GL_RED, GL_HALF_FLOAT, NULL); break;
-        case 2: glTexImage3D(GL_TEXTURE_3D, 0, GL_RG16F, width, height, depth, 0, GL_RG, GL_HALF_FLOAT, NULL); break;
-        case 3: glTexImage3D(GL_TEXTURE_3D, 0, GL_RGB16F, width, height, depth, 0, GL_RGB, GL_HALF_FLOAT, NULL); break;
-        case 4: glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA16F, width, height, depth, 0, GL_RGBA, GL_HALF_FLOAT, NULL); break;
-        default: std::cout << "Invalid number of dimensions for the texture" << std::endl; return {0, 0};
-    }
-
-    // if (glGetError() != GL_NO_ERROR)
-    // {
-    //     std::cout << "Error creating texture" << std::endl;
-    //     return {0, 0};
-    // }
-
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, texture, 0);
-
-    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-    {
-        std::cout << "Error creating framebuffer" << std::endl;
-    }
-
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glBindTexture(GL_TEXTURE_3D, 0);
-
-    return {fbo, texture};
-}
-
-void SwapSlabs(Slab *slab1, Slab *slab2)
-{
-    GLuint temp = slab1->fbo;
-    slab1->fbo = slab2->fbo;
-    slab2->fbo = temp;
-
-    temp = slab1->tex;
-    slab1->tex = slab2->tex;
-    slab2->tex = temp;
-}
-
-Slab Create2DSlab(GLuint width, GLuint height, GLushort dimensions)
-{
-    GLuint fbo;
-    glGenFramebuffers(1, &fbo);
-
-    GLuint texture;
-    glGenTextures(1, &texture);
-    glBindTexture(GL_TEXTURE_2D, texture);
-
-    switch(dimensions)
-    {
-        case 1: glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, width, height, 0, GL_RED, GL_FLOAT, NULL); break;
-        case 2: glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, width, height, 0, GL_RG, GL_FLOAT, NULL); break;
-        case 3: glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, width, height, 0, GL_RGB, GL_FLOAT, NULL); break;
-        case 4: glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, NULL); break;
-        default: std::cout << "Invalid number of dimensions for the texture" << std::endl; return {0, 0};
-    }
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-
-    GLfloat borderColor[] = { 0.0f, 0.0f, 0.0f, 0.0f };
-    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
-
-    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
-
-    glBindTexture(GL_TEXTURE_2D, 0);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-    return {fbo, texture};
-}

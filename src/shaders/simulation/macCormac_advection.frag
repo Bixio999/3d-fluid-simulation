@@ -20,11 +20,5 @@ void main()
 
     vec3 coord = InverseSize * (fragCoord - timeStep * u);
 
-    // FragColor = texture(SourceTexture, coord);
-    FragColor = dissipation * texture(SourceTexture, coord);
-
-    // float decay = 1.0 + dissipation * timeStep;
-    // FragColor = texture(SourceTexture, coord) / decay;
-    // FragColor = vec4(coord, 1.0);
-    // FragColor = vec4 (1,0,0,1);
+    
 }
