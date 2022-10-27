@@ -134,20 +134,20 @@ GLfloat deltaTime = 0.0f;
 GLfloat lastFrame = 0.0f;
 
 // parameters for simulation time step
-GLfloat timeStep = 0.25f;
+GLfloat timeStep = 0.2f;
 
 // Jacobi pressure solver iterations
-GLuint pressureIterations = 20;
+GLuint pressureIterations = 40;
 
 // Buoyancy parameters
 GLfloat ambientTemperature = 0.0f;
-GLfloat ambientBuoyancy = 0.8f;
-GLfloat ambientWeight = 0.0f;
+GLfloat ambientBuoyancy = 0.9f;
+GLfloat ambientWeight = 0.5f;
 
 // Dissipation factors
 // GLfloat velocityDissipation = 2.0f;
 // GLfloat densityDissipation = 1.3f;
-GLfloat velocityDissipation = 0.9f;
+GLfloat velocityDissipation = 0.8f;
 GLfloat densityDissipation = 0.9f;
 GLfloat temperatureDissipation = 0.9f;
 
@@ -253,6 +253,7 @@ int main()
     Shader illumination_shader = Shader("src/shaders/21_ggx_tex_shadow.vert", "src/shaders/22_ggx_tex_shadow.frag");
 
     Shader advectionShader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom"  ,"src/shaders/simulation/advection.frag");
+    Shader macCormackShader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom"  ,"src/shaders/simulation/macCormack_advection.frag");
     Shader buoyancyShader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom"  ,"src/shaders/simulation/buoyancy.frag");
     Shader divergenceShader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/simulation/divergence.frag");
     Shader jacobiShader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/simulation/jacobi_pressure.frag");
@@ -282,14 +283,18 @@ int main()
 
     /////////////////// CREATION OF BUFFERS FOR THE SIMULATION GRID /////////////////////////////////////////
     // Grid dimensions
-    const GLuint GRID_WIDTH = 200, GRID_HEIGHT = 200, GRID_DEPTH = 200;
-    // const GLuint GRID_WIDTH = 100, GRID_HEIGHT = 100, GRID_DEPTH = 100;
-    std::cout << "ciaone2" << std::endl;
+    // const GLuint GRID_WIDTH = 200, GRID_HEIGHT = 200, GRID_DEPTH = 200;
+    const GLuint GRID_WIDTH = 100, GRID_HEIGHT = 100, GRID_DEPTH = 100;
 
     SetGridSize(GRID_WIDTH, GRID_HEIGHT, GRID_DEPTH);
 
     Slab velocity_slab = CreateSlab(GRID_WIDTH, GRID_HEIGHT, GRID_DEPTH, 3);
     std::cout << "Created velocity grid = {" << velocity_slab.fbo << " , " << velocity_slab.tex << "}" << std::endl;
+    Slab phi1_hat_slab = CreateSlab(GRID_WIDTH, GRID_HEIGHT, GRID_DEPTH, 3);
+    std::cout << "Created phi1_hat grid = {" << phi1_hat_slab.fbo << " , " << phi1_hat_slab.tex << "}" << std::endl;
+    Slab phi2_hat_slab = CreateSlab(GRID_WIDTH, GRID_HEIGHT, GRID_DEPTH, 3);
+    std::cout << "Created phi2_hat grid = {" << phi2_hat_slab.fbo << " , " << phi2_hat_slab.tex << "}" << std::endl;
+
     Slab pressure_slab = CreateSlab(GRID_WIDTH, GRID_HEIGHT, GRID_DEPTH, 1);
     std::cout << "Created pressure grid = {" << pressure_slab.fbo << " , " << pressure_slab.tex << "}" << std::endl;
     Slab divergence_slab = CreateSlab(GRID_WIDTH, GRID_HEIGHT, GRID_DEPTH, 1);
@@ -370,33 +375,39 @@ int main()
         BeginSimulation();
 
         // advect velocity
-        Advect(&advectionShader, &velocity_slab, &velocity_slab, &temp_velocity_slab, velocityDissipation, timeStep);
+        AdvectMacCormack(&advectionShader, &macCormackShader, &velocity_slab, &phi1_hat_slab, &phi2_hat_slab, &velocity_slab, &temp_velocity_slab, velocityDissipation, timeStep);
+        // Advect(&advectionShader, &velocity_slab, &velocity_slab, &temp_velocity_slab, velocityDissipation, timeStep);
+        // SwapSlabs(&velocity_slab, &temp_velocity_slab);
 
-        // advect density
-        Advect(&advectionShader, &velocity_slab, &density_slab, &temp_pressure_divergence_slab, densityDissipation, timeStep);
+        // // advect density
+        AdvectMacCormack(&advectionShader, &macCormackShader, &velocity_slab, &phi1_hat_slab, &phi2_hat_slab, &density_slab, &temp_pressure_divergence_slab, densityDissipation, timeStep);
+        // Advect(&advectionShader, &velocity_slab, &density_slab, &temp_pressure_divergence_slab, densityDissipation, timeStep);
+        // SwapSlabs(&density_slab, &temp_pressure_divergence_slab);
 
-        // advect temperature
-        Advect(&advectionShader, &velocity_slab, &temperature_slab, &temp_pressure_divergence_slab, temperatureDissipation, timeStep);
+        // // advect temperature
+        AdvectMacCormack(&advectionShader, &macCormackShader, &velocity_slab, &phi1_hat_slab, &phi2_hat_slab, &temperature_slab, &temp_pressure_divergence_slab, temperatureDissipation, timeStep);
+        // Advect(&advectionShader, &velocity_slab, &temperature_slab, &temp_pressure_divergence_slab, temperatureDissipation, timeStep);
+        // SwapSlabs(&temperature_slab, &temp_pressure_divergence_slab);
 
         // we apply the external forces (buoyancy)
-        glm::vec3 placeholder_force = glm::vec3(-1, -1, 0) * 1.2f;
+        glm::vec3 placeholder_force = glm::vec3(-1, 0, 0) * 1.5f;
         glm::vec3 force_center = glm::vec3(GRID_WIDTH / 2.0f, GRID_HEIGHT / 5.0f, GRID_DEPTH / 2.0f);
         float force_radius = 5.0f;
 
         Buoyancy(&buoyancyShader, &velocity_slab, &temperature_slab, &density_slab, &temp_velocity_slab, ambientTemperature, timeStep, ambientBuoyancy, ambientWeight);
 
-        // we increase density based on applied force
-        float dyeColor = 5.0f;
+        // we increase density and temperature based on applied force
+        float dyeColor = 3.0f;
         // float dyeColor = placeholder_force.length();
 
         AddDensity(&dyeShader, &density_slab, &temp_pressure_divergence_slab, force_center, force_radius, dyeColor);
 
         AddTemperature(&temperatureShader, &temperature_slab, &temp_pressure_divergence_slab, force_center, force_radius, dyeColor);
 
-        force_center.y * 1.1f;
+        force_center.y *= 1.1f;
         force_center.x -= GRID_WIDTH / 5.0f;
         force_radius = 20.0f;
-        placeholder_force *= 2.5f;
+        // placeholder_force *= 1.1f;
         ApplyExternalForces(&externalForcesShader, &velocity_slab, &temp_velocity_slab, timeStep, placeholder_force, force_center, force_radius);
 
         force_center.x += 2 * GRID_WIDTH / 5.0f;

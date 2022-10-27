@@ -42,8 +42,11 @@ void EndSimulation();
 
 ///////////////////////////////////////////
 
-// execute advection 
+// execute advection with semi-lagrangian scheme
 void Advect(Shader* advectionShader, Slab *velocity, Slab *source, Slab *dest, float dissipation, float timeStep);
+
+// execute advection with mac-cormack scheme
+void AdvectMacCormack(Shader* advectionShader, Shader* macCormackShader, Slab *velocity, Slab *phi1_hat, Slab *phi2_hat, Slab* source, Slab* dest, float dissipation, float timeStep);
 
 // execute buoyancy
 void Buoyancy(Shader* buoyancyShader, Slab *velocity, Slab *temperature, Slab *density, Slab *dest, float ambientTemperature, float timeStep, float sigma, float kappa);

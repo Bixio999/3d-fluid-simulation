@@ -42,6 +42,7 @@ Slab CreateSlab(GLuint width, GLuint height, GLuint depth, GLushort dimensions)
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
 
     glBindFramebuffer(GL_FRAMEBUFFER, fbo);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, texture, 0);
@@ -189,6 +190,47 @@ void Advect(Shader* advectionShader, Slab *velocity, Slab *source, Slab *dest, f
 
     glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_3D, 0);
     glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_3D, 0);
+
+    // SwapSlabs(source, dest);
+}
+
+void AdvectMacCormack(Shader* advectionShader, Shader* macCormackShader, Slab *velocity, Slab *phi1_hat, Slab *phi2_hat, Slab* source, Slab* dest, float dissipation, float timeStep)
+{
+    // first advection pass - compute phi1_hat
+    Advect(advectionShader, velocity, source, phi1_hat, dissipation, timeStep);
+
+    // second advection pass - compute phi2_hat
+    Advect(advectionShader, velocity, phi1_hat, phi2_hat, 1 / dissipation, -timeStep);
+
+    // third advection pass - compute new velocities
+
+    macCormackShader->Use();
+
+    glBindFramebuffer(GL_FRAMEBUFFER, dest->fbo);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_3D, velocity->tex);
+    glUniform1i(glGetUniformLocation(macCormackShader->Program, "VelocityTexture"), 0);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_3D, phi1_hat->tex);
+    glUniform1i(glGetUniformLocation(macCormackShader->Program, "Phi1HatTexture"), 1);
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_3D, phi2_hat->tex);
+    glUniform1i(glGetUniformLocation(macCormackShader->Program, "Phi2HatTexture"), 2);
+    glActiveTexture(GL_TEXTURE3);
+    glBindTexture(GL_TEXTURE_3D, source->tex);
+    glUniform1i(glGetUniformLocation(macCormackShader->Program, "SourceTexture"), 3);
+
+    glUniform1f(glGetUniformLocation(macCormackShader->Program, "timeStep"), timeStep);
+    glUniform3fv(glGetUniformLocation(macCormackShader->Program, "InverseSize"), 1, glm::value_ptr(InverseSize));
+    glUniform1f(glGetUniformLocation(macCormackShader->Program, "dissipation"), dissipation);
+
+    glDrawArraysInstanced(GL_TRIANGLES, 0, 6, GRID_DEPTH);
+
+    glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_3D, 0);
+    glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_3D, 0);
+    glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_3D, 0);
+    glActiveTexture(GL_TEXTURE3); glBindTexture(GL_TEXTURE_3D, 0);
 
     SwapSlabs(source, dest);
 }
