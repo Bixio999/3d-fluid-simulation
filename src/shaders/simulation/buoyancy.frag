@@ -34,4 +34,7 @@ void main()
     {
         FragColor = vec4(currentVel, 1.0);
     }
+
+    if (length(FragColor) < 0.0001)
+        FragColor = vec4(0.0);
 }

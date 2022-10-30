@@ -24,4 +24,7 @@ void main()
     vec3 oldVelocity = texture(VelocityTexture, fragCoord * InverseSize).xyz;
 
     newVelocity = oldVelocity - gradient;
+
+    if (length(newVelocity) < 0.0001)
+        newVelocity = vec3(0.0);
 }

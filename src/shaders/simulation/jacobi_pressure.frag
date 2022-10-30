@@ -22,4 +22,7 @@ void main()
     float pTop = texture(Pressure, (fragCoord + vec3(0.0, 0.0, 1.0)) * InverseSize).r;
 
     newPressure = (pLeft + pRight + pDown + pUp + pBottom + pTop - divergence) / 6.0f;
+
+    if (abs(newPressure) < 0.0001)
+        newPressure = 0.0;
 }

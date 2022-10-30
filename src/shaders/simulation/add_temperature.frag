@@ -40,4 +40,7 @@ void main()
 
     FragColor = vec4(finalTemp, 0, 0, 1.0);
     // FragColor = vec3(1,0,0);
+
+    if (length(FragColor) < 0.0001)
+        FragColor = vec4(0.0);
 }

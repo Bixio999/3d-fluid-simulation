@@ -53,6 +53,10 @@ void main()
             break;
     }
 
-    FragColor = finalColor;
+    if (finalColor.w < 0.01)
+        // discard;
+        finalColor = vec4(0,0,0,0);
+    else
+        FragColor = finalColor;
 
 }

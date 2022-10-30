@@ -55,4 +55,7 @@ void main()
     newVal = clamp(newVal, minVal, maxVal);
 
     FragColor = vec4(newVal, 1.0);
+
+    if (length(FragColor) < 0.0001)
+        FragColor = vec4(0.0);
 }

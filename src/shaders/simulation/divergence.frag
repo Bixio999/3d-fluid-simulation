@@ -22,6 +22,9 @@ void main() {
     // FragColor = coefficient * (vR.x - vL.x + vT.y - vB.y + vU.z - vD.z);
     FragColor = 0.5 * (vR.x - vL.x + vT.y - vB.y + vU.z - vD.z);
 
+    if (abs(FragColor) < 0.0001)
+        FragColor = 0.0;
+
     // FragColor = abs(vR.x - vL.x) * 100;
     // FragColor = 1.0f;
 }

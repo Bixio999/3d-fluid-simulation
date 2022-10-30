@@ -145,14 +145,12 @@ GLuint pressureIterations = 40;
 // Buoyancy parameters
 GLfloat ambientTemperature = 0.0f;
 GLfloat ambientBuoyancy = 0.9f;
-GLfloat ambientWeight = 0.5f;
+GLfloat ambientWeight = 0.0f;
 
 // Dissipation factors
-// GLfloat velocityDissipation = 2.0f;
-// GLfloat densityDissipation = 1.3f;
-GLfloat velocityDissipation = 0.8f;
-GLfloat densityDissipation = 0.9f;
-GLfloat temperatureDissipation = 0.9f;
+GLfloat velocityDissipation = 0.8f; // 0.8f
+GLfloat densityDissipation = 0.8f; // 0.8f
+GLfloat temperatureDissipation = 0.9f; // 0.9f
 
 // rotation angle on Y axis
 GLfloat orientationY = 0.0f;
@@ -394,30 +392,31 @@ int main()
             // Advect(&advectionShader, &velocity_slab, &temperature_slab, &temp_pressure_divergence_slab, temperatureDissipation, timeStep);
             // SwapSlabs(&temperature_slab, &temp_pressure_divergence_slab);
 
-            // we apply the external forces (buoyancy)
-            glm::vec3 placeholder_force = glm::vec3(0, 0, -1) * 1.5f;
-            glm::vec3 force_center = glm::vec3(GRID_WIDTH / 2.0f, GRID_HEIGHT / 5.0f, GRID_DEPTH / 2.0f);
-            float force_radius = 5.0f;
-
+            // we apply the buoyancy force
             Buoyancy(&buoyancyShader, &velocity_slab, &temperature_slab, &density_slab, &temp_velocity_slab, ambientTemperature, timeStep, ambientBuoyancy, ambientWeight);
 
+            // we apply the external forces and splat density and temperature
+            glm::vec3 placeholder_force = glm::vec3(0, -1, 0) * 1.0f;
+            glm::vec3 force_center = glm::vec3(GRID_WIDTH / 2.0f, GRID_HEIGHT * 0.8f, GRID_DEPTH / 2.0f);
+            float force_radius = 5.0f;
+
             // we increase density and temperature based on applied force
-            float dyeColor = 3.0f;
+            float dyeColor = 1.2f;
             // float dyeColor = placeholder_force.length();
 
             AddDensity(&dyeShader, &density_slab, &temp_pressure_divergence_slab, force_center, force_radius, dyeColor);
 
             AddTemperature(&temperatureShader, &temperature_slab, &temp_pressure_divergence_slab, force_center, force_radius, dyeColor);
 
-            force_center.y *= 1.1f;
-            force_center.x -= GRID_WIDTH / 5.0f;
+            // force_center.y *= 1.1f;
+            // force_center.x -= GRID_WIDTH / 5.0f;
             force_radius = 20.0f;
             // placeholder_force *= 1.1f;
             ApplyExternalForces(&externalForcesShader, &velocity_slab, &temp_velocity_slab, timeStep, placeholder_force, force_center, force_radius);
 
-            force_center.x += 2 * GRID_WIDTH / 5.0f;
-            placeholder_force.z *= -1;
-            ApplyExternalForces(&externalForcesShader, &velocity_slab, &temp_velocity_slab, timeStep, placeholder_force, force_center, force_radius);
+            // force_center.x += 2 * GRID_WIDTH / 5.0f;
+            // placeholder_force.x *= -1;
+            // ApplyExternalForces(&externalForcesShader, &velocity_slab, &temp_velocity_slab, timeStep, placeholder_force, force_center, force_radius);
 
             // we update the divergence texture
             Divergence(&divergenceShader, &velocity_slab, &divergence_slab, &temp_pressure_divergence_slab);
@@ -471,8 +470,8 @@ int main()
         // setup volume rendering
         cubeModelMatrix = glm::mat4(1.0f);
         cubeNormalMatrix = glm::mat3(1.0f);
-        cubeModelMatrix = glm::translate(cubeModelMatrix, glm::vec3(0.0f, 0.0f, 1.0f));
-        // cubeModelMatrix = glm::scale(cubeModelMatrix, glm::vec3(1.0f, 1.0f, 1.0f));
+        cubeModelMatrix = glm::translate(cubeModelMatrix, glm::vec3(0.0f, 2.0f, 1.0f));
+        cubeModelMatrix = glm::scale(cubeModelMatrix, glm::vec3(2.0f, 2.0f, 2.0f));
         cubeNormalMatrix = glm::inverseTranspose(glm::mat3(cubeModelMatrix));
 
         // we create the raydata texture
