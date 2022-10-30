@@ -134,7 +134,10 @@ GLfloat deltaTime = 0.0f;
 GLfloat lastFrame = 0.0f;
 
 // parameters for simulation time step
-GLfloat timeStep = 0.2f;
+GLfloat timeStep = 0.25f;
+GLfloat lastSimulationUpdate = 0.0f;
+GLfloat simulationFramerate = 1.0f / 60.0f;
+
 
 // Jacobi pressure solver iterations
 GLuint pressureIterations = 40;
@@ -369,62 +372,68 @@ int main()
         apply_camera_movements();
 
         /////////////////// STEP 1 - UPDATE SIMULATION  //////////////////////////////////////////////////////////////////////////
-        // we update the 3D textures with the new values of the simulation
+        // we update the simulation based on the defined timestep
 
-        // we bind the VAO for the quad and set up rendering
-        BeginSimulation();
+        if (currentFrame - lastSimulationUpdate >= simulationFramerate)
+        {
+            // we bind the VAO for the quad and set up rendering
+            BeginSimulation();
 
-        // advect velocity
-        AdvectMacCormack(&advectionShader, &macCormackShader, &velocity_slab, &phi1_hat_slab, &phi2_hat_slab, &velocity_slab, &temp_velocity_slab, velocityDissipation, timeStep);
-        // Advect(&advectionShader, &velocity_slab, &velocity_slab, &temp_velocity_slab, velocityDissipation, timeStep);
-        // SwapSlabs(&velocity_slab, &temp_velocity_slab);
+            // advect velocity
+            AdvectMacCormack(&advectionShader, &macCormackShader, &velocity_slab, &phi1_hat_slab, &phi2_hat_slab, &velocity_slab, &temp_velocity_slab, velocityDissipation, timeStep);
+            // Advect(&advectionShader, &velocity_slab, &velocity_slab, &temp_velocity_slab, velocityDissipation, timeStep);
+            // SwapSlabs(&velocity_slab, &temp_velocity_slab);
 
-        // // advect density
-        AdvectMacCormack(&advectionShader, &macCormackShader, &velocity_slab, &phi1_hat_slab, &phi2_hat_slab, &density_slab, &temp_pressure_divergence_slab, densityDissipation, timeStep);
-        // Advect(&advectionShader, &velocity_slab, &density_slab, &temp_pressure_divergence_slab, densityDissipation, timeStep);
-        // SwapSlabs(&density_slab, &temp_pressure_divergence_slab);
+            // // advect density
+            AdvectMacCormack(&advectionShader, &macCormackShader, &velocity_slab, &phi1_hat_slab, &phi2_hat_slab, &density_slab, &temp_pressure_divergence_slab, densityDissipation, timeStep);
+            // Advect(&advectionShader, &velocity_slab, &density_slab, &temp_pressure_divergence_slab, densityDissipation, timeStep);
+            // SwapSlabs(&density_slab, &temp_pressure_divergence_slab);
 
-        // // advect temperature
-        AdvectMacCormack(&advectionShader, &macCormackShader, &velocity_slab, &phi1_hat_slab, &phi2_hat_slab, &temperature_slab, &temp_pressure_divergence_slab, temperatureDissipation, timeStep);
-        // Advect(&advectionShader, &velocity_slab, &temperature_slab, &temp_pressure_divergence_slab, temperatureDissipation, timeStep);
-        // SwapSlabs(&temperature_slab, &temp_pressure_divergence_slab);
+            // // advect temperature
+            AdvectMacCormack(&advectionShader, &macCormackShader, &velocity_slab, &phi1_hat_slab, &phi2_hat_slab, &temperature_slab, &temp_pressure_divergence_slab, temperatureDissipation, timeStep);
+            // Advect(&advectionShader, &velocity_slab, &temperature_slab, &temp_pressure_divergence_slab, temperatureDissipation, timeStep);
+            // SwapSlabs(&temperature_slab, &temp_pressure_divergence_slab);
 
-        // we apply the external forces (buoyancy)
-        glm::vec3 placeholder_force = glm::vec3(-1, 0, 0) * 1.5f;
-        glm::vec3 force_center = glm::vec3(GRID_WIDTH / 2.0f, GRID_HEIGHT / 5.0f, GRID_DEPTH / 2.0f);
-        float force_radius = 5.0f;
+            // we apply the external forces (buoyancy)
+            glm::vec3 placeholder_force = glm::vec3(0, 0, -1) * 1.5f;
+            glm::vec3 force_center = glm::vec3(GRID_WIDTH / 2.0f, GRID_HEIGHT / 5.0f, GRID_DEPTH / 2.0f);
+            float force_radius = 5.0f;
 
-        Buoyancy(&buoyancyShader, &velocity_slab, &temperature_slab, &density_slab, &temp_velocity_slab, ambientTemperature, timeStep, ambientBuoyancy, ambientWeight);
+            Buoyancy(&buoyancyShader, &velocity_slab, &temperature_slab, &density_slab, &temp_velocity_slab, ambientTemperature, timeStep, ambientBuoyancy, ambientWeight);
 
-        // we increase density and temperature based on applied force
-        float dyeColor = 3.0f;
-        // float dyeColor = placeholder_force.length();
+            // we increase density and temperature based on applied force
+            float dyeColor = 3.0f;
+            // float dyeColor = placeholder_force.length();
 
-        AddDensity(&dyeShader, &density_slab, &temp_pressure_divergence_slab, force_center, force_radius, dyeColor);
+            AddDensity(&dyeShader, &density_slab, &temp_pressure_divergence_slab, force_center, force_radius, dyeColor);
 
-        AddTemperature(&temperatureShader, &temperature_slab, &temp_pressure_divergence_slab, force_center, force_radius, dyeColor);
+            AddTemperature(&temperatureShader, &temperature_slab, &temp_pressure_divergence_slab, force_center, force_radius, dyeColor);
 
-        force_center.y *= 1.1f;
-        force_center.x -= GRID_WIDTH / 5.0f;
-        force_radius = 20.0f;
-        // placeholder_force *= 1.1f;
-        ApplyExternalForces(&externalForcesShader, &velocity_slab, &temp_velocity_slab, timeStep, placeholder_force, force_center, force_radius);
+            force_center.y *= 1.1f;
+            force_center.x -= GRID_WIDTH / 5.0f;
+            force_radius = 20.0f;
+            // placeholder_force *= 1.1f;
+            ApplyExternalForces(&externalForcesShader, &velocity_slab, &temp_velocity_slab, timeStep, placeholder_force, force_center, force_radius);
 
-        force_center.x += 2 * GRID_WIDTH / 5.0f;
-        placeholder_force.x *= -1;
-        ApplyExternalForces(&externalForcesShader, &velocity_slab, &temp_velocity_slab, timeStep, placeholder_force, force_center, force_radius);
+            force_center.x += 2 * GRID_WIDTH / 5.0f;
+            placeholder_force.z *= -1;
+            ApplyExternalForces(&externalForcesShader, &velocity_slab, &temp_velocity_slab, timeStep, placeholder_force, force_center, force_radius);
 
-        // we update the divergence texture
-        Divergence(&divergenceShader, &velocity_slab, &divergence_slab, &temp_pressure_divergence_slab);
+            // we update the divergence texture
+            Divergence(&divergenceShader, &velocity_slab, &divergence_slab, &temp_pressure_divergence_slab);
 
-        // we update the pressure texture
-        Jacobi(&jacobiShader, &pressure_slab, &divergence_slab, &temp_pressure_divergence_slab, pressureIterations);
+            // we update the pressure texture
+            Jacobi(&jacobiShader, &pressure_slab, &divergence_slab, &temp_pressure_divergence_slab, pressureIterations);
 
-        // we apply the pressure projection
-        ApplyPressure(&pressureShader, &velocity_slab, &pressure_slab, &temp_velocity_slab);
+            // we apply the pressure projection
+            ApplyPressure(&pressureShader, &velocity_slab, &pressure_slab, &temp_velocity_slab);
 
-        // reset the state
-        EndSimulation();
+            // reset the state
+            EndSimulation();
+
+            lastSimulationUpdate = currentFrame;
+        }
+
 
         /////////////////// STEP 1 - SHADOW MAP: RENDERING OF SCENE FROM LIGHT POINT OF VIEW ////////////////////////////////////////////////
         glEnable(GL_DEPTH_TEST);
@@ -853,8 +862,6 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos)
       camera.ProcessMouseMovement(xoffset, yoffset);
 
 }
-
-
 
 
 
