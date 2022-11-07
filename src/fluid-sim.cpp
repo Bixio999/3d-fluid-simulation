@@ -400,16 +400,15 @@ void ApplyPressure(Shader *pressureShader, Slab *velocity, Slab *pressure, Slab 
     SwapSlabs(velocity, dest);
 }
 
-/////////////////////////////////////////////
+//////////////////// RAYDATA TEXTURE CREATION /////////////////////////
 
-// draw raydata texture for fluid rendering
-void RayData(Shader* raydataShader, Model &cubeModel, Slab *raydata, glm::mat4 &model, glm::mat4 &view, glm::mat4 &projection)
+void RayData(Shader* raydataShader, Model &cubeModel, Slab *back, Slab *front, glm::mat4 &model, glm::mat4 &view, glm::mat4 &projection)
 {
     glEnable(GL_CULL_FACE);
 
     raydataShader->Use();
 
-    glBindFramebuffer(GL_FRAMEBUFFER, raydata->fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, back->fbo);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     glUniformMatrix4fv(glGetUniformLocation(raydataShader->Program, "model"), 1, GL_FALSE, glm::value_ptr(model));
@@ -421,37 +420,55 @@ void RayData(Shader* raydataShader, Model &cubeModel, Slab *raydata, glm::mat4 &
 
     cubeModel.Draw();
 
+    glBindFramebuffer(GL_FRAMEBUFFER, front->fbo);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    glCullFace(GL_BACK);
+
+    cubeModel.Draw();
+
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glDisable(GL_CULL_FACE);
 }
 
-// render front faces of the cube
-void RenderFluid(Shader* renderShader, Model &cubeModel, glm::mat4 &model, glm::mat4 &view, glm::mat4 &projection, Slab *raydata, Slab *density, glm::vec2 inverseScreenSize)
-{
-    glEnable(GL_CULL_FACE);
+/////////////////////// VOLUME RENDERING WITH RAYMARCHING TECHNIQUE //////////////////////////
 
+// render front faces of the cube
+void RenderFluid(Shader* renderShader, Model &cubeModel, glm::mat4 &model, glm::mat4 &view, glm::mat4 &projection, Slab *raydataBack, Slab* raydataFront, Slab *density, Slab* dest, glm::vec2 inverseScreenSize, GLfloat nearPlane, glm::vec3 eyePosition, glm::vec3 cameraFront)
+{
     renderShader->Use();
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, dest->fbo);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, raydata->tex);
-    glUniform1i(glGetUniformLocation(renderShader->Program, "RayDataTexture"), 0);
+    glBindTexture(GL_TEXTURE_2D, raydataBack->tex);
+    glUniform1i(glGetUniformLocation(renderShader->Program, "RayDataBack"), 0);
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_3D, density->tex);
     glUniform1i(glGetUniformLocation(renderShader->Program, "DensityTexture"), 1);
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, raydataFront->tex);
+    glUniform1i(glGetUniformLocation(renderShader->Program, "RayDataFront"), 2);
 
     glUniformMatrix4fv(glGetUniformLocation(renderShader->Program, "model"), 1, GL_FALSE, glm::value_ptr(model));
     glUniformMatrix4fv(glGetUniformLocation(renderShader->Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
     glUniformMatrix4fv(glGetUniformLocation(renderShader->Program, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
     glUniform3fv(glGetUniformLocation(renderShader->Program, "grid_size"), 1, glm::value_ptr(glm::vec3(GRID_WIDTH, GRID_HEIGHT, GRID_DEPTH)));
     glUniform2fv(glGetUniformLocation(renderShader->Program, "InverseSize"), 1, glm::value_ptr(inverseScreenSize));
+    glUniform1f(glGetUniformLocation(renderShader->Program, "nearPlane"), nearPlane);
+    glUniform3fv(glGetUniformLocation(renderShader->Program, "eyePos"), 1, glm::value_ptr(eyePosition));
+    glUniform3fv(glGetUniformLocation(renderShader->Program, "cameraFront"), 1, glm::value_ptr(cameraFront));
 
-    glCullFace(GL_BACK);
+    cubeModel.Draw();
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     cubeModel.Draw();
 
     glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, 0);
     glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_3D, 0);
+    glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_2D, 0);
 
-    glDisable(GL_CULL_FACE);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }

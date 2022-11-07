@@ -149,7 +149,7 @@ GLfloat ambientWeight = 0.0f;
 
 // Dissipation factors
 GLfloat velocityDissipation = 0.8f; // 0.8f
-GLfloat densityDissipation = 0.8f; // 0.8f
+GLfloat densityDissipation = 0.9f; // 0.8f
 GLfloat temperatureDissipation = 0.9f; // 0.9f
 
 // rotation angle on Y axis
@@ -214,7 +214,7 @@ int main()
     glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
 
     // we create the application's window
-    GLFWwindow* window = glfwCreateWindow(screenWidth, screenHeight, "RGP_lecture06a", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(screenWidth, screenHeight, "3D Fluid Simulation", nullptr, nullptr);
     if (!window)
     {
         std::cout << "Failed to create GLFW window" << std::endl;
@@ -262,8 +262,8 @@ int main()
     Shader externalForcesShader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/simulation/apply_force.frag");
     Shader pressureShader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/simulation/pressure_projection.frag");
     Shader dyeShader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/simulation/add_dye.frag");
-    Shader raydataShader = Shader("src/shaders/rendering/raydata/raydata.vert", "src/shaders/rendering/raydata/raydata_back.frag");
-    Shader renderShader = Shader("src/shaders/rendering/raydata/raydata.vert", "src/shaders/rendering/raydata/raydata_front.frag");
+    Shader raydataBackShader = Shader("src/shaders/rendering/raydata/raydata.vert", "src/shaders/rendering/raydata/raydata.frag");
+    Shader renderShader = Shader("src/shaders/rendering/raydata/raydata.vert", "src/shaders/rendering/raymarching.frag");
 
     // we parse the Shader Program to search for the number and names of the subroutines.
     // the names are placed in the shaders vector
@@ -314,7 +314,13 @@ int main()
     std::cout << "Created temp pressure divergence grid = {" << temp_pressure_divergence_slab.fbo << " , " << temp_pressure_divergence_slab.tex << "}" << std::endl;
 
     /////////////////// CREATION OF BUFFER FOR THE RAYCASTING RAYDATA TEXTURE /////////////////////////////////////////
-    Slab rayData = Create2DSlab(width, height, 4);
+    Slab rayDataBack = Create2DSlab(width, height, 4);
+    std::cout << "Created raydata back grid = {" << rayDataBack.fbo << " , " << rayDataBack.tex << "}" << std::endl;
+    Slab rayDataFront = Create2DSlab(width, height, 4);
+    std::cout << "Created raydata front grid = {" << rayDataFront.fbo << " , " << rayDataFront.tex << "}" << std::endl;
+    
+    Slab temp_output = Create2DSlab(width, height, 4);
+
 
     /////////////////// CREATION OF BUFFER FOR THE  DEPTH MAP /////////////////////////////////////////
     // buffer dimension: too large -> performance may slow down if we have many lights; too small -> strong aliasing
@@ -353,7 +359,10 @@ int main()
     InitSimulation();
 
     // Projection matrix of the camera: FOV angle, aspect ratio, near and far planes
-    glm::mat4 projection = glm::perspective(45.0f, (float)screenWidth/(float)screenHeight, 0.1f, 10000.0f);
+    GLfloat windowNearPlane = 0.1f;
+    GLfloat windowFarPlane = 10000.0f;
+
+    glm::mat4 projection = glm::perspective(45.0f, (float)screenWidth/(float)screenHeight, windowNearPlane, windowFarPlane);
 
     // Rendering loop: this code is executed at each frame
     while(!glfwWindowShouldClose(window))
@@ -467,18 +476,29 @@ int main()
 
         view = camera.GetViewMatrix();
 
+        glm::vec2 inverseScreenSize = glm::vec2(1.0f / width, 1.0f / height);
+
         // setup volume rendering
         cubeModelMatrix = glm::mat4(1.0f);
         cubeNormalMatrix = glm::mat3(1.0f);
+
         cubeModelMatrix = glm::translate(cubeModelMatrix, glm::vec3(0.0f, 2.0f, 1.0f));
         cubeModelMatrix = glm::scale(cubeModelMatrix, glm::vec3(2.0f, 2.0f, 2.0f));
+
         cubeNormalMatrix = glm::inverseTranspose(glm::mat3(cubeModelMatrix));
 
         // we create the raydata texture
 
         // we render the back faces of the volume to compute max depth
 
-        RayData(&raydataShader, cubeModel, &rayData, cubeModelMatrix, view, projection);
+        glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+
+        RayData(&raydataBackShader, cubeModel, &rayDataBack, &rayDataFront, cubeModelMatrix, view, projection);
+
+        // RayDataBack(&raydataBackShader, cubeModel, &rayData, cubeModelMatrix, view, projection, RAYDATA_BACK);
+
+        // RayDataBack(&raydataBackShader, cubeModel, &temp_rayData, cubeModelMatrix, view, projection, RAYDATA_FRONT);
+        // RayDataFront(&raydataFrontShader, cubeModel, &rayData, &temp_rayData, cubeModelMatrix, view, projection, inverseScreenSize);
 
         // /////////////////// STEP 2 - SCENE RENDERING FROM CAMERA ////////////////////////////////////////////////
 
@@ -536,9 +556,10 @@ int main()
         // we render the scene
         RenderObjects(illumination_shader, planeModel, sphereModel, bunnyModel, RENDER, depthMap);
 
-        // we render the front faces of the volume to compute min depth and entry points
-        
-        RenderFluid(&renderShader, cubeModel, cubeModelMatrix, view, projection, &rayData, &density_slab, glm::vec2(1.0f / width, 1.0f / height));
+        // we render the simulation volume to display fluid
+        RenderFluid(&renderShader, cubeModel, cubeModelMatrix, view, projection, &rayDataBack, &rayDataFront, &density_slab, &temp_output, inverseScreenSize, windowNearPlane, camera.Position, camera.Front);
+        // std::cout << "camera pos: {" << camera.Position.x << ", " << camera.Position.y << ", " << camera.Position.z << "}" << std::endl;
+
 
         glDisable(GL_BLEND);
 
