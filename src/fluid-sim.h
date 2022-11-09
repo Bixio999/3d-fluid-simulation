@@ -82,9 +82,9 @@ void ApplyPressure(Shader* pressureShader, Slab *velocity, Slab *pressure, Slab 
 /////////////////////////////////////////////
 
 // render back faces of the cube
-void RayData(Shader* raydataShader, Model &cubeModel, Slab *back, Slab *front, glm::mat4 &model, glm::mat4 &view, glm::mat4 &projection);
+void RayData(Shader &backShader, Shader &frontShader, Model &cubeModel, Slab &back, Slab &front, glm::mat4 &model, glm::mat4 &view, glm::mat4 &projection, glm::vec2 inverseScreenSize);
 
 // render the fluid using the raycasting technique
-void RenderFluid(Shader* renderShader, Model &cubeModel, glm::mat4 &model, glm::mat4 &view, glm::mat4 &projection, Slab *raydataBack, Slab* raydataFront, Slab *density, Scene &dest, glm::vec2 inverseScreenSize, GLfloat nearPlane, glm::vec3 eyePosition, glm::vec3 cameraFront);
+void RenderFluid(Shader &renderShader, Model &cubeModel, glm::mat4 &model, glm::mat4 &view, glm::mat4 &projection, Slab &rayDataFront, Slab &rayDataBack, Slab &density, Scene &dest, glm::vec2 inverseScreenSize, GLfloat nearPlane, glm::vec3 eyePosition, glm::vec3 cameraFront);
 
-void BlendRendering(Shader &blendingShader, Scene &scene, Scene &fluid, Scene &raydataBack, glm::vec2 inverseScreenSize);
+void BlendRendering(Shader &blendingShader, Scene &scene, Scene &fluid, Slab &raydataBack, glm::vec2 inverseScreenSize);

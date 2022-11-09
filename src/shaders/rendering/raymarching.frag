@@ -14,8 +14,9 @@ uniform vec3 eyePos;
 uniform vec3 cameraFront;
 
 uniform sampler2D RayDataBack;
-uniform sampler3D DensityTexture;
 uniform sampler2D RayDataFront;
+
+uniform sampler3D DensityTexture;
 
 in vec4 mvpPos;
 in vec3 ogPos;
@@ -51,14 +52,14 @@ vec3 TextureVoxelClamp(vec3 pos)
 
 void main()
 {
-    vec4 rd_back = texture(RayDataBack, InverseSize * gl_FragCoord.xy);
-    vec4 rd_front = texture(RayDataFront, InverseSize * gl_FragCoord.xy);
+    vec4 rd_back = texture(RayDataBack, gl_FragCoord.xy * InverseSize);
+    vec4 rd_front = texture(RayDataFront, gl_FragCoord.xy * InverseSize);
 
-    float clipping = rd_back.a - rd_front.a;
+    vec4 raydata = rd_back - rd_front;
 
     vec3 start, dir;
     float fragDepth = gl_FragCoord.z;
-    if (clipping < 0.0)
+    if (raydata.w < 0.0)
     {
         vec3 mOgPos = (model * vec4(ogPos, 1.0)).xyz;
         start = NearPlaneIntersection(eyePos, mOgPos);
@@ -75,7 +76,7 @@ void main()
         start = clamp(start, 0.0, 1.0);
         start = TextureVoxelClamp(start);
 
-        dir = TextureVoxelClamp(rd_back.xyz) - start;
+        dir = raydata.xyz - start;
 
         // FragColor = vec4(start, 1.0); 
     }
@@ -84,9 +85,9 @@ void main()
         if (!gl_FrontFacing)
             discard;
 
-        start = TextureVoxelClamp(rd_front.xyz);
+        start = TextureVoxelClamp(texPos);
 
-        dir = TextureVoxelClamp(rd_back.xyz) - start;
+        dir = raydata.xyz;
 
         // FragColor = vec4(1.0, 0.0, 0.0, 1.0);
         // FragColor = vec4(start, 1.0);   

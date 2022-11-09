@@ -18,7 +18,7 @@ void main()
 
     float sceneDepth = texture(SceneDepth, gl_FragCoord.xy * InverseSize).x;
     float fluidDepth = texture(FluidDepth, gl_FragCoord.xy * InverseSize).x;
-    float rayDataDepth = texture(RayDataDepth, gl_FragCoord.xy * InverseSize).x;
+    float rayDataDepth = - texture(RayDataDepth, gl_FragCoord.xy * InverseSize).w;
 
     if (sceneDepth < rayDataDepth && sceneDepth < fluidDepth)
         FragColor = vec4(sceneColor, 1.0);

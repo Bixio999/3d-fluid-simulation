@@ -261,9 +261,9 @@ int main()
     Shader pressureShader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/simulation/pressure_projection.frag");
     Shader dyeShader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/simulation/add_dye.frag");
 
-    Shader raydataBackShader = Shader("src/shaders/rendering/raydata/raydata.vert", "src/shaders/rendering/raydata/raydata.frag");
-    // Shader raydataBackShader = Shader("src/shaders/rendering/raydata/raydata.vert", "src/shaders/rendering/raydata/raydata_back.frag");
-    // Shader raydataFrontShader = Shader("src/shaders/rendering/raydata/raydata.vert", "src/shaders/rendering/raydata/raydata_front.frag");
+    Shader raydataBackShader = Shader("src/shaders/rendering/raydata/raydata.vert", "src/shaders/rendering/raydata/raydata_back.frag");
+    Shader raydataFrontShader = Shader("src/shaders/rendering/raydata/raydata.vert", "src/shaders/rendering/raydata/raydata_front.frag");
+
     Shader renderShader = Shader("src/shaders/rendering/raydata/raydata.vert", "src/shaders/rendering/raymarching.frag");
 
     Shader blendingShader = Shader("src/shaders/rendering/blending/blending.vert", "src/shaders/rendering/blending/blending.frag");
@@ -318,14 +318,12 @@ int main()
 
     /////////////////// CREATION OF BUFFER FOR THE RAYCASTING RAYDATA TEXTURE /////////////////////////////////////////
 
-    Scene rayDataBack = CreateScene(width, height);
-    std::cout << "Created raydata back grid = {" << rayDataBack.fbo << " , " << rayDataBack.colorTex << ", " << rayDataBack.depthTex << "}" << std::endl;
-    // Slab rayDataBack = Create2DSlab(width, height, 4);
-    // std::cout << "Created raydata back grid = {" << rayDataBack.fbo << " , " << rayDataBack.tex << "}" << std::endl;
+    Slab rayDataBack = Create2DSlab(width, height, 4);
+    std::cout << "Created raydata back grid = {" << rayDataBack.fbo << " , " << rayDataBack.tex << "}" << std::endl;
     Slab rayDataFront = Create2DSlab(width, height, 4);
     std::cout << "Created raydata front grid = {" << rayDataFront.fbo << " , " << rayDataFront.tex << "}" << std::endl;
     
-    Slab temp_output = Create2DSlab(width, height, 4);
+    // Slab temp_output = Create2DSlab(width, height, 4);
 
 
     /////////////////// CREATION OF BUFFER FOR THE  DEPTH MAP /////////////////////////////////////////
@@ -505,18 +503,11 @@ int main()
 
         // we render the back faces of the volume to compute max depth
 
-        // glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+        RayData(raydataBackShader, raydataFrontShader, cubeModel, rayDataBack, rayDataFront, cubeModelMatrix, view, projection, inverseScreenSize);
 
-        Slab rd_back = {rayDataBack.fbo, rayDataBack.colorTex};
-
-        RayData(&raydataBackShader, cubeModel, &rd_back, &rayDataFront, cubeModelMatrix, view, projection);
+        // RayData(&raydataBackShader, cubeModel, &rd_back, &rayDataFront, cubeModelMatrix, view, projection);
         // RayData(raydataBackShader, cubeModel, rayDataFront, rayDataBack, cubeModelMatrix, view, projection, RAYDATA_BACK, inverseScreenSize);
         // RayData(raydataFrontShader, cubeModel, rayDataFront, rayDataBack, cubeModelMatrix, view, projection, RAYDATA_FRONT, inverseScreenSize);
-
-        // RayDataBack(&raydataBackShader, cubeModel, &rayData, cubeModelMatrix, view, projection, RAYDATA_BACK);
-
-        // RayDataBack(&raydataBackShader, cubeModel, &temp_rayData, cubeModelMatrix, view, projection, RAYDATA_FRONT);
-        // RayDataFront(&raydataFrontShader, cubeModel, &rayData, &temp_rayData, cubeModelMatrix, view, projection, inverseScreenSize);
 
         // /////////////////// STEP 2 - SCENE RENDERING FROM CAMERA ////////////////////////////////////////////////
 
@@ -575,7 +566,10 @@ int main()
         RenderObjects(illumination_shader, planeModel, sphereModel, bunnyModel, RENDER, depthMap);
 
         // we render the simulation volume to display fluid
-        RenderFluid(&renderShader, cubeModel, cubeModelMatrix, view, projection, &rd_back, &rayDataFront, &density_slab, fluidScene, inverseScreenSize, windowNearPlane, camera.Position, camera.Front);
+
+        RenderFluid(renderShader, cubeModel, cubeModelMatrix, view, projection, rayDataFront, rayDataBack, density_slab, fluidScene, inverseScreenSize, windowNearPlane, camera.Position, camera.Front);
+
+        // RenderFluid(&renderShader, cubeModel, cubeModelMatrix, view, projection, &rd_back, &rayDataFront, &density_slab, fluidScene, inverseScreenSize, windowNearPlane, camera.Position, camera.Front);
         // std::cout << "camera pos: {" << camera.Position.x << ", " << camera.Position.y << ", " << camera.Position.z << "}" << std::endl;
 
         BlendRendering(blendingShader, scene, fluidScene, rayDataBack, inverseScreenSize);
