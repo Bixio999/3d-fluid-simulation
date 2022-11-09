@@ -19,11 +19,21 @@ struct Slab
     GLuint tex;
 };
 
+struct Scene
+{
+    GLuint fbo;
+    GLuint colorTex;
+    GLuint depthTex;
+};
+
 // create a simulation grid slab
 Slab CreateSlab(GLuint width, GLuint height, GLuint depth, GLushort dimensions);
 
 // create slab with a 2d texture
 Slab Create2DSlab(GLuint width, GLuint height, GLushort dimensions);
+
+// create a scene
+Scene CreateScene(GLuint width, GLuint height);
 
 // swap the simulation grid slabs
 void SwapSlabs(Slab *slabA, Slab *slabB);
@@ -75,4 +85,6 @@ void ApplyPressure(Shader* pressureShader, Slab *velocity, Slab *pressure, Slab 
 void RayData(Shader* raydataShader, Model &cubeModel, Slab *back, Slab *front, glm::mat4 &model, glm::mat4 &view, glm::mat4 &projection);
 
 // render the fluid using the raycasting technique
-void RenderFluid(Shader* renderShader, Model &cubeModel, glm::mat4 &model, glm::mat4 &view, glm::mat4 &projection, Slab *raydataBack, Slab* raydataFront, Slab *density, Slab* dest, glm::vec2 inverseScreenSize, GLfloat nearPlane, glm::vec3 eyePosition, glm::vec3 cameraFront);
+void RenderFluid(Shader* renderShader, Model &cubeModel, glm::mat4 &model, glm::mat4 &view, glm::mat4 &projection, Slab *raydataBack, Slab* raydataFront, Slab *density, Scene &dest, glm::vec2 inverseScreenSize, GLfloat nearPlane, glm::vec3 eyePosition, glm::vec3 cameraFront);
+
+void BlendRendering(Shader &blendingShader, Scene &scene, Scene &fluid, Scene &raydataBack, glm::vec2 inverseScreenSize);

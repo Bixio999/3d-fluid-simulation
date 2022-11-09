@@ -96,8 +96,6 @@ GLuint screenWidth = 1200, screenHeight = 900;
 // the rendering steps used in the application
 enum render_passes{ SHADOWMAP, RENDER};
 
-
-
 // callback functions for keyboard and mouse events
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
@@ -246,7 +244,7 @@ int main()
 
     //the "clear" color for the frame buffer
     // glClearColor(0.26f, 0.46f, 0.98f, 1.0f);
-    glClearColor(0,0,0,1.0f);
+    glClearColor(0,0,0,0);
 
     // we create the Shader Program for the creation of the shadow map
     Shader shadow_shader("src/shaders/19_shadowmap.vert", "src/shaders/20_shadowmap.frag");
@@ -262,8 +260,13 @@ int main()
     Shader externalForcesShader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/simulation/apply_force.frag");
     Shader pressureShader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/simulation/pressure_projection.frag");
     Shader dyeShader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/simulation/add_dye.frag");
+
     Shader raydataBackShader = Shader("src/shaders/rendering/raydata/raydata.vert", "src/shaders/rendering/raydata/raydata.frag");
+    // Shader raydataBackShader = Shader("src/shaders/rendering/raydata/raydata.vert", "src/shaders/rendering/raydata/raydata_back.frag");
+    // Shader raydataFrontShader = Shader("src/shaders/rendering/raydata/raydata.vert", "src/shaders/rendering/raydata/raydata_front.frag");
     Shader renderShader = Shader("src/shaders/rendering/raydata/raydata.vert", "src/shaders/rendering/raymarching.frag");
+
+    Shader blendingShader = Shader("src/shaders/rendering/blending/blending.vert", "src/shaders/rendering/blending/blending.frag");
 
     // we parse the Shader Program to search for the number and names of the subroutines.
     // the names are placed in the shaders vector
@@ -314,8 +317,11 @@ int main()
     std::cout << "Created temp pressure divergence grid = {" << temp_pressure_divergence_slab.fbo << " , " << temp_pressure_divergence_slab.tex << "}" << std::endl;
 
     /////////////////// CREATION OF BUFFER FOR THE RAYCASTING RAYDATA TEXTURE /////////////////////////////////////////
-    Slab rayDataBack = Create2DSlab(width, height, 4);
-    std::cout << "Created raydata back grid = {" << rayDataBack.fbo << " , " << rayDataBack.tex << "}" << std::endl;
+
+    Scene rayDataBack = CreateScene(width, height);
+    std::cout << "Created raydata back grid = {" << rayDataBack.fbo << " , " << rayDataBack.colorTex << ", " << rayDataBack.depthTex << "}" << std::endl;
+    // Slab rayDataBack = Create2DSlab(width, height, 4);
+    // std::cout << "Created raydata back grid = {" << rayDataBack.fbo << " , " << rayDataBack.tex << "}" << std::endl;
     Slab rayDataFront = Create2DSlab(width, height, 4);
     std::cout << "Created raydata front grid = {" << rayDataFront.fbo << " , " << rayDataFront.tex << "}" << std::endl;
     
@@ -353,6 +359,14 @@ int main()
     glDrawBuffer(GL_NONE);
     glReadBuffer(GL_NONE);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    /////////////////// CREATION OF SCENE FRAMEBUFFERS /////////////////////////////////////////
+    Scene scene = CreateScene(width, height);
+    std::cout << "Created scene framebuffer = {" << scene.fbo << " , " << scene.colorTex << ", " << scene.depthTex << "}" << std::endl;
+
+    Scene fluidScene = CreateScene(width, height);
+    std::cout << "Created fluid scene framebuffer = {" << fluidScene.fbo << " , " << fluidScene.colorTex << ", " << fluidScene.depthTex << "}" << std::endl;
+
     ///////////////////////////////////////////////////////////////////
 
     // Create shaders for fluid simulation
@@ -491,9 +505,13 @@ int main()
 
         // we render the back faces of the volume to compute max depth
 
-        glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+        // glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 
-        RayData(&raydataBackShader, cubeModel, &rayDataBack, &rayDataFront, cubeModelMatrix, view, projection);
+        Slab rd_back = {rayDataBack.fbo, rayDataBack.colorTex};
+
+        RayData(&raydataBackShader, cubeModel, &rd_back, &rayDataFront, cubeModelMatrix, view, projection);
+        // RayData(raydataBackShader, cubeModel, rayDataFront, rayDataBack, cubeModelMatrix, view, projection, RAYDATA_BACK, inverseScreenSize);
+        // RayData(raydataFrontShader, cubeModel, rayDataFront, rayDataBack, cubeModelMatrix, view, projection, RAYDATA_FRONT, inverseScreenSize);
 
         // RayDataBack(&raydataBackShader, cubeModel, &rayData, cubeModelMatrix, view, projection, RAYDATA_BACK);
 
@@ -509,10 +527,10 @@ int main()
         view = camera.GetViewMatrix();
 
         // we activate back the standard Frame Buffer
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glBindFramebuffer(GL_FRAMEBUFFER, scene.fbo);
 
         // we "clear" the frame and z buffer
-        glClearColor(0,0,0,1.0f);
+        // glClearColor(0,0,0,1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // we set the rendering mode
@@ -557,35 +575,12 @@ int main()
         RenderObjects(illumination_shader, planeModel, sphereModel, bunnyModel, RENDER, depthMap);
 
         // we render the simulation volume to display fluid
-        RenderFluid(&renderShader, cubeModel, cubeModelMatrix, view, projection, &rayDataBack, &rayDataFront, &density_slab, &temp_output, inverseScreenSize, windowNearPlane, camera.Position, camera.Front);
+        RenderFluid(&renderShader, cubeModel, cubeModelMatrix, view, projection, &rd_back, &rayDataFront, &density_slab, fluidScene, inverseScreenSize, windowNearPlane, camera.Position, camera.Front);
         // std::cout << "camera pos: {" << camera.Position.x << ", " << camera.Position.y << ", " << camera.Position.z << "}" << std::endl;
 
+        BlendRendering(blendingShader, scene, fluidScene, rayDataBack, inverseScreenSize);
 
         glDisable(GL_BLEND);
-
-
-        /////////////////// STEP 3 - TEST RENDERING FOR 3D TEXTURE  ////////////////////////////////////////////////
-        // fluidModelMatrix = glm::mat4(1.0f);
-        // fluidNormalMatrix = glm::mat3(1.0f);
-        // // fluidModelMatrix = glm::translate(fluidModelMatrix, glm::vec3(0.0f, 0.0f, 1));
-        // // fluidModelMatrix = glm::rotate(fluidModelMatrix, glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-        // fluidNormalMatrix = glm::inverseTranspose(view * fluidModelMatrix);
-
-        // fluidTestRenderer.Use();
-
-        // // glBindVertexArray(quad_VAO);
-
-        // glBindVertexArray(VaoCubeCenter);
-
-        // glEnable(GL_BLEND);
-
-        // glUniformMatrix4fv(glGetUniformLocation(fluidTestRenderer.Program, "model"), 1, GL_FALSE, glm::value_ptr(fluidModelMatrix));
-        // glUniformMatrix4fv(glGetUniformLocation(fluidTestRenderer.Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
-        // glUniformMatrix4fv(glGetUniformLocation(fluidTestRenderer.Program, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
-
-        // glUniform3fv(glGetUniformLocation(fluidTestRenderer.Program, "InverseSize"), 1, glm::value_ptr(inverseSize));
-
-        // glDrawArrays(GL_POINTS, 0, 1);
 
 
         // Swapping back and front buffers

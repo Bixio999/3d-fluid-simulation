@@ -57,10 +57,16 @@ void main()
     float clipping = rd_back.a - rd_front.a;
 
     vec3 start, dir;
+    float fragDepth = gl_FragCoord.z;
     if (clipping < 0.0)
     {
         vec3 mOgPos = (model * vec4(ogPos, 1.0)).xyz;
         start = NearPlaneIntersection(eyePos, mOgPos);
+
+        vec4 mvpNearPlane = projection * view * vec4(start, 1.0);
+        mvpNearPlane /= mvpNearPlane.w;
+        fragDepth = mvpNearPlane.z;
+        // gl_FragDepth = mvpNearPlane.z * 0.5 + 0.5;
 
         start = (vec4(start, 1.0) * transpose(inverse(model))).xyz;
 
@@ -86,6 +92,8 @@ void main()
         // FragColor = vec4(start, 1.0);   
     }
 
+    gl_FragDepth = fragDepth;
+
     // FragColor = vec4(dir, 1.0);
 
     vec3 fluidColor = vec3(0.8,0.8, 0.8);
@@ -109,8 +117,8 @@ void main()
     }
 
     if (finalColor.w < 0.01)
-        // discard;
-        FragColor = vec4(0,0,0,0);
+        discard;
+        // FragColor = vec4(0,0,0,0);
     else
         FragColor = finalColor;
 

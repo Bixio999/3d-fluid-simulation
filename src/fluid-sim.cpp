@@ -94,6 +94,43 @@ Slab Create2DSlab(GLuint width, GLuint height, GLushort dimensions)
     return {fbo, texture};
 }
 
+Scene CreateScene(GLuint width, GLuint height)
+{
+    GLuint fbo;
+
+    glGenFramebuffers(1, &fbo);
+
+    GLuint colorTex, depthTex;
+
+    glGenTextures(1, &colorTex);
+    glBindTexture(GL_TEXTURE_2D, colorTex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+
+    GLfloat borderColor[] = { 0.0f, 0.0f, 0.0f, 0.0f };
+    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
+
+    glGenTextures(1, &depthTex);
+    glBindTexture(GL_TEXTURE_2D, depthTex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, width, height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorTex, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthTex, 0);
+
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    return {fbo, colorTex, depthTex};
+}
+
 // swap the simulation grid slabs
 void SwapSlabs(Slab *slab1, Slab *slab2)
 {
@@ -434,10 +471,10 @@ void RayData(Shader* raydataShader, Model &cubeModel, Slab *back, Slab *front, g
 /////////////////////// VOLUME RENDERING WITH RAYMARCHING TECHNIQUE //////////////////////////
 
 // render front faces of the cube
-void RenderFluid(Shader* renderShader, Model &cubeModel, glm::mat4 &model, glm::mat4 &view, glm::mat4 &projection, Slab *raydataBack, Slab* raydataFront, Slab *density, Slab* dest, glm::vec2 inverseScreenSize, GLfloat nearPlane, glm::vec3 eyePosition, glm::vec3 cameraFront)
+void RenderFluid(Shader* renderShader, Model &cubeModel, glm::mat4 &model, glm::mat4 &view, glm::mat4 &projection, Slab *raydataBack, Slab* raydataFront, Slab *density, Scene &dest, glm::vec2 inverseScreenSize, GLfloat nearPlane, glm::vec3 eyePosition, glm::vec3 cameraFront)
 {
     renderShader->Use();
-    glBindFramebuffer(GL_FRAMEBUFFER, dest->fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, dest.fbo);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     glActiveTexture(GL_TEXTURE0);
@@ -461,9 +498,9 @@ void RenderFluid(Shader* renderShader, Model &cubeModel, glm::mat4 &model, glm::
 
     cubeModel.Draw();
 
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    // glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-    cubeModel.Draw();
+    // cubeModel.Draw();
 
     glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, 0);
     glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_3D, 0);
@@ -471,4 +508,45 @@ void RenderFluid(Shader* renderShader, Model &cubeModel, glm::mat4 &model, glm::
 
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+void BlendRendering(Shader &blendingShader, Scene &scene, Scene &fluid, Scene &raydataBack, glm::vec2 inverseScreenSize)
+{
+    blendingShader.Use();
+
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, fluid.colorTex);
+    glUniform1i(glGetUniformLocation(blendingShader.Program, "FluidTexture"), 0);
+
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, fluid.depthTex);
+    glUniform1i(glGetUniformLocation(blendingShader.Program, "FluidDepth"), 1);
+
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, raydataBack.depthTex);
+    glUniform1i(glGetUniformLocation(blendingShader.Program, "RayDataDepth"), 2);
+
+    glActiveTexture(GL_TEXTURE3);
+    glBindTexture(GL_TEXTURE_2D, scene.colorTex);
+    glUniform1i(glGetUniformLocation(blendingShader.Program, "SceneTexture"), 3);
+
+    glActiveTexture(GL_TEXTURE4);
+    glBindTexture(GL_TEXTURE_2D, scene.depthTex);
+    glUniform1i(glGetUniformLocation(blendingShader.Program, "SceneDepth"), 4);
+
+    glUniform2fv(glGetUniformLocation(blendingShader.Program, "InverseSize"), 1, glm::value_ptr(inverseScreenSize));
+
+    glBindVertexArray(quadVAO);
+
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+
+    glBindVertexArray(0);
+
+    glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, 0);
+    glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_2D, 0);
+    glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_2D, 0);
+    glActiveTexture(GL_TEXTURE3); glBindTexture(GL_TEXTURE_2D, 0);
+    glActiveTexture(GL_TEXTURE4); glBindTexture(GL_TEXTURE_2D, 0);
 }
