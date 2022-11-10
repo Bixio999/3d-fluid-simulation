@@ -439,7 +439,7 @@ void ApplyPressure(Shader *pressureShader, Slab *velocity, Slab *pressure, Slab 
 
 //////////////////// RAYDATA TEXTURE CREATION /////////////////////////
 
-void RayData(Shader &backShader, Shader &frontShader, Model &cubeModel, Slab &back, Slab &front, glm::mat4 &model, glm::mat4 &view, glm::mat4 &projection, glm::vec2 inverseScreenSize)
+void RayData(Shader &backShader, Shader &frontShader, Model &cubeModel, Slab &back, Slab &front, Scene &scene, glm::mat4 &model, glm::mat4 &view, glm::mat4 &projection, glm::vec2 inverseScreenSize)
 {
     glEnable(GL_CULL_FACE);
 
@@ -448,10 +448,15 @@ void RayData(Shader &backShader, Shader &frontShader, Model &cubeModel, Slab &ba
     glBindFramebuffer(GL_FRAMEBUFFER, back.fbo);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, scene.depthTex);
+    glUniform1i(glGetUniformLocation(backShader.Program, "SceneDepthTexture"), 0);
+
     glUniformMatrix4fv(glGetUniformLocation(backShader.Program, "model"), 1, GL_FALSE, glm::value_ptr(model));
     glUniformMatrix4fv(glGetUniformLocation(backShader.Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
     glUniformMatrix4fv(glGetUniformLocation(backShader.Program, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
     glUniform3fv(glGetUniformLocation(backShader.Program, "grid_size"), 1, glm::value_ptr(glm::vec3(GRID_WIDTH, GRID_HEIGHT, GRID_DEPTH)));
+    glUniform2fv(glGetUniformLocation(backShader.Program, "InverseSize"), 1, glm::value_ptr(inverseScreenSize));
 
     glCullFace(GL_FRONT);
 
@@ -466,6 +471,10 @@ void RayData(Shader &backShader, Shader &frontShader, Model &cubeModel, Slab &ba
     glBindTexture(GL_TEXTURE_2D, back.tex);
     glUniform1i(glGetUniformLocation(frontShader.Program, "RayDataTexture"), 0);
 
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, scene.depthTex);
+    glUniform1i(glGetUniformLocation(frontShader.Program, "SceneDepthTexture"), 1);
+
     glUniformMatrix4fv(glGetUniformLocation(frontShader.Program, "model"), 1, GL_FALSE, glm::value_ptr(model));
     glUniformMatrix4fv(glGetUniformLocation(frontShader.Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
     glUniformMatrix4fv(glGetUniformLocation(frontShader.Program, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
@@ -475,6 +484,9 @@ void RayData(Shader &backShader, Shader &frontShader, Model &cubeModel, Slab &ba
     glCullFace(GL_BACK);
 
     cubeModel.Draw();
+
+    glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, 0);
+    glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_2D, 0);
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glDisable(GL_CULL_FACE);

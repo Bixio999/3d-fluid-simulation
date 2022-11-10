@@ -4,6 +4,10 @@ out vec4 fragColor;
 
 uniform vec3 grid_size;
 
+uniform sampler2D SceneDepth;
+
+uniform vec2 InverseSize;
+
 in vec4 mvpPos;
 in vec3 texPos;
 
@@ -25,5 +29,7 @@ void main()
     // depth += 0.5;
     // depth /= grid_size.z;
 
-    fragColor = vec4(TextureVoxelClamp(texPos), - gl_FragCoord.z);
+    float sceneDepth = texture(SceneDepth, InverseSize * gl_FragCoord.xy).r;
+
+    fragColor = vec4(TextureVoxelClamp(texPos), - min(gl_FragCoord.z, sceneDepth));
 }

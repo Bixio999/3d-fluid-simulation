@@ -481,38 +481,7 @@ int main()
         // we render the scene, using the shadow shader
         RenderObjects(shadow_shader, planeModel, sphereModel, bunnyModel, SHADOWMAP, depthMap);
 
-        /////////////////// STEP 1 - RAYDATA: RENDERING VOLUME FOR RAYMARCHING INFO ////////////////////////////////////////////////
-        // we render the volume for raymarching
-
-        glViewport(0, 0, width, height);
-
-        view = camera.GetViewMatrix();
-
-        glm::vec2 inverseScreenSize = glm::vec2(1.0f / width, 1.0f / height);
-
-        // setup volume rendering
-        cubeModelMatrix = glm::mat4(1.0f);
-        cubeNormalMatrix = glm::mat3(1.0f);
-
-        cubeModelMatrix = glm::translate(cubeModelMatrix, glm::vec3(0.0f, 2.0f, 1.0f));
-        cubeModelMatrix = glm::scale(cubeModelMatrix, glm::vec3(2.0f, 2.0f, 2.0f));
-
-        cubeNormalMatrix = glm::inverseTranspose(glm::mat3(cubeModelMatrix));
-
-        // we create the raydata texture
-
-        // we render the back faces of the volume to compute max depth
-
-        RayData(raydataBackShader, raydataFrontShader, cubeModel, rayDataBack, rayDataFront, cubeModelMatrix, view, projection, inverseScreenSize);
-
-        // RayData(&raydataBackShader, cubeModel, &rd_back, &rayDataFront, cubeModelMatrix, view, projection);
-        // RayData(raydataBackShader, cubeModel, rayDataFront, rayDataBack, cubeModelMatrix, view, projection, RAYDATA_BACK, inverseScreenSize);
-        // RayData(raydataFrontShader, cubeModel, rayDataFront, rayDataBack, cubeModelMatrix, view, projection, RAYDATA_FRONT, inverseScreenSize);
-
         // /////////////////// STEP 2 - SCENE RENDERING FROM CAMERA ////////////////////////////////////////////////
-
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
         // we get the view matrix from the Camera class
         view = camera.GetViewMatrix();
@@ -565,17 +534,32 @@ int main()
         // we render the scene
         RenderObjects(illumination_shader, planeModel, sphereModel, bunnyModel, RENDER, depthMap);
 
-        // we render the simulation volume to display fluid
+        /////////////////// STEP 1 - RAYDATA: CREATING INFO FOR RAYMARCHING ////////////////////////////////////////////////
+        // we render the volume for raymarching
 
+        glViewport(0, 0, width, height);
+
+        glm::vec2 inverseScreenSize = glm::vec2(1.0f / width, 1.0f / height);
+
+        // setup volume rendering
+        cubeModelMatrix = glm::mat4(1.0f);
+        cubeNormalMatrix = glm::mat3(1.0f);
+
+        cubeModelMatrix = glm::translate(cubeModelMatrix, glm::vec3(0.0f, 2.0f, 1.0f));
+        cubeModelMatrix = glm::scale(cubeModelMatrix, glm::vec3(2.0f, 2.0f, 2.0f));
+
+        cubeNormalMatrix = glm::inverseTranspose(glm::mat3(cubeModelMatrix));
+
+        // we create the raydata texture
+        RayData(raydataBackShader, raydataFrontShader, cubeModel, rayDataBack, rayDataFront, scene, cubeModelMatrix, view, projection, inverseScreenSize);
+
+        //////////////////////////////// STEP 2 - RAYMARCHING ////////////////////////////////////////////////
+
+        // we render the simulation volume to display fluid
         RenderFluid(renderShader, cubeModel, cubeModelMatrix, view, projection, rayDataFront, rayDataBack, density_slab, fluidScene, inverseScreenSize, windowNearPlane, camera.Position, camera.Front);
 
-        // RenderFluid(&renderShader, cubeModel, cubeModelMatrix, view, projection, &rd_back, &rayDataFront, &density_slab, fluidScene, inverseScreenSize, windowNearPlane, camera.Position, camera.Front);
-        // std::cout << "camera pos: {" << camera.Position.x << ", " << camera.Position.y << ", " << camera.Position.z << "}" << std::endl;
-
+        // we combine the fluid rendering with the scene rendering
         BlendRendering(blendingShader, scene, fluidScene, rayDataBack, inverseScreenSize);
-
-        glDisable(GL_BLEND);
-
 
         // Swapping back and front buffers
         glfwSwapBuffers(window);
