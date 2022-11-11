@@ -162,13 +162,10 @@ void CreateQuadVAO()
     glBindVertexArray(quadVAO);
 
     short positions[] = { 
-        -1, -1, 
-         1, -1, 
-         1,  1,
-
-        -1, -1, 
-         1,  1, 
-        -1,  1 
+        -1, -1,
+        1, -1,
+        -1, 1,
+        1, 1
     };
     glGenBuffers(1, &quad_VBO);
     glBindBuffer(GL_ARRAY_BUFFER, quad_VBO);
@@ -223,7 +220,7 @@ void Advect(Shader* advectionShader, Slab *velocity, Slab *source, Slab *dest, f
     glUniform3fv(glGetUniformLocation(advectionShader->Program, "InverseSize"), 1, glm::value_ptr(InverseSize));
     glUniform1f(glGetUniformLocation(advectionShader->Program, "dissipation"), dissipation);
 
-    glDrawArraysInstanced(GL_TRIANGLES, 0, 6, GRID_DEPTH);
+    glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, GRID_DEPTH);
 
     glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_3D, 0);
     glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_3D, 0);
@@ -262,7 +259,7 @@ void AdvectMacCormack(Shader* advectionShader, Shader* macCormackShader, Slab *v
     glUniform3fv(glGetUniformLocation(macCormackShader->Program, "InverseSize"), 1, glm::value_ptr(InverseSize));
     glUniform1f(glGetUniformLocation(macCormackShader->Program, "dissipation"), dissipation);
 
-    glDrawArraysInstanced(GL_TRIANGLES, 0, 6, GRID_DEPTH);
+    glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, GRID_DEPTH);
 
     glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_3D, 0);
     glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_3D, 0);
@@ -295,7 +292,7 @@ void Buoyancy(Shader* buoyancyShader, Slab *velocity, Slab *temperature, Slab *d
     glUniform1f(glGetUniformLocation(buoyancyShader->Program, "smokeWeight"), kappa);
     glUniform3fv(glGetUniformLocation(buoyancyShader->Program, "InverseSize"), 1, glm::value_ptr(InverseSize));
 
-    glDrawArraysInstanced(GL_TRIANGLES, 0, 6, GRID_DEPTH);
+    glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, GRID_DEPTH);
 
     glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_3D, 0);
     glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_3D, 0);
@@ -319,7 +316,7 @@ void ApplyExternalForces(Shader *externalForcesShader, Slab *velocity, Slab *des
     glUniform3fv(glGetUniformLocation(externalForcesShader->Program, "center"), 1, glm::value_ptr(position));
     glUniform1f(glGetUniformLocation(externalForcesShader->Program, "radius"), radius);
 
-    glDrawArraysInstanced(GL_TRIANGLES, 0, 6, GRID_DEPTH);
+    glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, GRID_DEPTH);
 
     glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_3D, 0);
 
@@ -340,7 +337,7 @@ void AddDensity(Shader *dyeShader, Slab *density, Slab *dest, glm::vec3 position
     glUniform1f(glGetUniformLocation(dyeShader->Program, "radius"), radius);
     glUniform1f(glGetUniformLocation(dyeShader->Program, "dyeIntensity"), color);
 
-    glDrawArraysInstanced(GL_TRIANGLES, 0, 6, GRID_DEPTH);
+    glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, GRID_DEPTH);
 
     glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_3D, 0);
 
@@ -361,7 +358,7 @@ void AddTemperature(Shader *dyeShader, Slab *temperature, Slab *dest, glm::vec3 
     glUniform1f(glGetUniformLocation(dyeShader->Program, "radius"), radius);
     glUniform1f(glGetUniformLocation(dyeShader->Program, "temperature"), appliedTemperature);
 
-    glDrawArraysInstanced(GL_TRIANGLES, 0, 6, GRID_DEPTH);
+    glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, GRID_DEPTH);
 
     glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_3D, 0);
 
@@ -379,7 +376,7 @@ void Divergence(Shader *divergenceShader, Slab *velocity, Slab *divergence, Slab
     glUniform1i(glGetUniformLocation(divergenceShader->Program, "VelocityTexture"), 0);
     glUniform3fv(glGetUniformLocation(divergenceShader->Program, "InverseSize"), 1, glm::value_ptr(InverseSize));
 
-    glDrawArraysInstanced(GL_TRIANGLES, 0, 6, GRID_DEPTH);
+    glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, GRID_DEPTH);
 
     glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_3D, 0);
 
@@ -405,7 +402,7 @@ void Jacobi(Shader *jacobiShader, Slab *pressure, Slab *divergence, Slab *dest, 
         glUniform1i(glGetUniformLocation(jacobiShader->Program, "Divergence"), 1);
         glUniform3fv(glGetUniformLocation(jacobiShader->Program, "InverseSize"), 1, glm::value_ptr(InverseSize));
 
-        glDrawArraysInstanced(GL_TRIANGLES, 0, 6, GRID_DEPTH);
+        glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, GRID_DEPTH);
 
         SwapSlabs(pressure, dest);
     }
@@ -429,7 +426,7 @@ void ApplyPressure(Shader *pressureShader, Slab *velocity, Slab *pressure, Slab 
     glUniform1i(glGetUniformLocation(pressureShader->Program, "PressureTexture"), 1);
     glUniform3fv(glGetUniformLocation(pressureShader->Program, "InverseSize"), 1, glm::value_ptr(InverseSize));
 
-    glDrawArraysInstanced(GL_TRIANGLES, 0, 6, GRID_DEPTH);
+    glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, GRID_DEPTH);
 
     glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_3D, 0);
     glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_3D, 0);
@@ -563,7 +560,7 @@ void BlendRendering(Shader &blendingShader, Scene &scene, Scene &fluid, Slab &ra
 
     glBindVertexArray(quadVAO);
 
-    glDrawArrays(GL_TRIANGLES, 0, 6);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
     glBindVertexArray(0);
 
@@ -572,4 +569,9 @@ void BlendRendering(Shader &blendingShader, Scene &scene, Scene &fluid, Slab &ra
     glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_2D, 0);
     glActiveTexture(GL_TEXTURE3); glBindTexture(GL_TEXTURE_2D, 0);
     glActiveTexture(GL_TEXTURE4); glBindTexture(GL_TEXTURE_2D, 0);
+}
+
+void BorderObstacle(Shader* borderObstacleShader, Slab *dest)
+{
+    
 }

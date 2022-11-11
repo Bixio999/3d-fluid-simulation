@@ -88,3 +88,8 @@ void RayData(Shader &backShader, Shader &frontShader, Model &cubeModel, Slab &ba
 void RenderFluid(Shader &renderShader, Model &cubeModel, glm::mat4 &model, glm::mat4 &view, glm::mat4 &projection, Slab &rayDataFront, Slab &rayDataBack, Slab &density, Scene &dest, glm::vec2 inverseScreenSize, GLfloat nearPlane, glm::vec3 eyePosition, glm::vec3 cameraFront);
 
 void BlendRendering(Shader &blendingShader, Scene &scene, Scene &fluid, Slab &raydataBack, glm::vec2 inverseScreenSize);
+
+/////////////////////////////////////////////
+
+// create the volume border obstacle grid
+void BorderObstacle(Shader* borderObstacleShader, Slab *dest);
