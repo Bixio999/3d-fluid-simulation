@@ -261,6 +261,9 @@ int main()
     Shader pressureShader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/simulation/pressure_projection.frag");
     Shader dyeShader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/simulation/add_dye.frag");
 
+    Shader borderObstacleShaderLayered = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/obstacles/border.geom","src/shaders/obstacles/border.frag");
+    Shader borderObstacleShader = Shader("src/shaders/simulation/load_vertices.vert","src/shaders/obstacles/border.frag");
+
     Shader raydataBackShader = Shader("src/shaders/rendering/raydata/raydata.vert", "src/shaders/rendering/raydata/raydata_back.frag");
     Shader raydataFrontShader = Shader("src/shaders/rendering/raydata/raydata.vert", "src/shaders/rendering/raydata/raydata_front.frag");
 
@@ -323,7 +326,13 @@ int main()
     Slab rayDataFront = Create2DSlab(width, height, 4);
     std::cout << "Created raydata front grid = {" << rayDataFront.fbo << " , " << rayDataFront.tex << "}" << std::endl;
     
-    // Slab temp_output = Create2DSlab(width, height, 4);
+    ///////////////////////////////// CREATION OF BUFFERS AND DATA FOR OBSTACLES /////////////////////////////////////////
+
+    Slab obstacle_slab = CreateSlab(GRID_WIDTH, GRID_HEIGHT, GRID_DEPTH, 1);
+    std::cout << "Created obstacle grid = {" << obstacle_slab.fbo << " , " << obstacle_slab.tex << "}" << std::endl;
+
+    Slab obstacle_velocity_slab = CreateSlab(GRID_WIDTH, GRID_HEIGHT, GRID_DEPTH, 3);
+    std::cout << "Created obstacle velocity grid = {" << obstacle_velocity_slab.fbo << " , " << obstacle_velocity_slab.tex << "}" << std::endl;
 
 
     /////////////////// CREATION OF BUFFER FOR THE  DEPTH MAP /////////////////////////////////////////
@@ -389,6 +398,9 @@ int main()
         glfwPollEvents();
         // we apply FPS camera movements
         apply_camera_movements();
+
+
+        BorderObstacle(borderObstacleShader, borderObstacleShaderLayered, obstacle_slab);
 
         /////////////////// STEP 1 - UPDATE SIMULATION  //////////////////////////////////////////////////////////////////////////
         // we update the simulation based on the defined timestep

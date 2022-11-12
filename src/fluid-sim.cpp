@@ -10,9 +10,8 @@ float GRID_HEIGHT;
 float GRID_DEPTH;
 glm::vec3 InverseSize;
 
-
-
 GLuint quadVAO = 0;
+GLuint borderVAO = 0;
 
 //////////////////////////////////////
 
@@ -178,11 +177,43 @@ void CreateQuadVAO()
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
-// initialize the simulation shaders and data structures
+void CreateBorderVAO()
+{
+    GLuint vbo;
+
+    glGenVertexArrays(1, &borderVAO);
+    glBindVertexArray(borderVAO);
+
+    #define V 0.9999f
+
+    float positions[] = {
+        -V, -V,
+        V, -V,
+        V, V,
+        -V, V,
+        -V, -V
+    };
+    #undef V
+
+    glGenBuffers(1, &vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(positions), positions, GL_STATIC_DRAW);
+
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), 0);
+
+    glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+}
+
+// initialize the simulation data structures
 void InitSimulation()
 {
-    // create the quad vao
+    // create the quad vao (triangle strip)
     CreateQuadVAO();
+
+    // create the border vao (lines strip)
+    CreateBorderVAO();
 }
 
 // setup vars to start simulation phase
@@ -571,7 +602,36 @@ void BlendRendering(Shader &blendingShader, Scene &scene, Scene &fluid, Slab &ra
     glActiveTexture(GL_TEXTURE4); glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-void BorderObstacle(Shader* borderObstacleShader, Slab *dest)
+///////////////////////// OBSTACLE FUNCTIONS /////////////////////////////
+
+void BorderObstacle(Shader &borderObstacleShader, Shader &borderObstacleShaderLayered, Slab &dest)
 {
-    
+
+    glViewport(0,0, GRID_WIDTH, GRID_HEIGHT);
+    borderObstacleShaderLayered.Use();
+
+    glBindFramebuffer(GL_FRAMEBUFFER, dest.fbo);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    glBindVertexArray(borderVAO);
+    glDrawArraysInstanced(GL_LINE_STRIP, 0, 5, GRID_DEPTH);
+
+    borderObstacleShader.Use();
+    glBindVertexArray(quadVAO);
+
+    glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, dest.tex, 0, 0);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, dest.tex, 0, GRID_DEPTH - 1);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    // for(int i = 0; i < GRID_DEPTH; i++)
+    // {
+    //     glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, dest.tex, 0, i);
+    //     glDrawArrays(GL_LINE_STRIP, 0, 5);
+    // }
+
+    // glBindVertexArray(quadVAO);
+
+    glBindVertexArray(0);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }

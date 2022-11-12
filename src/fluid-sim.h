@@ -92,4 +92,5 @@ void BlendRendering(Shader &blendingShader, Scene &scene, Scene &fluid, Slab &ra
 /////////////////////////////////////////////
 
 // create the volume border obstacle grid
-void BorderObstacle(Shader* borderObstacleShader, Slab *dest);
+void BorderObstacle(Shader &borderObstacleShader, Shader &borderObstacleShaderLayered, Slab &dest);
+
