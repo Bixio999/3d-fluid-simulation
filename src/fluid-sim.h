@@ -53,19 +53,19 @@ void EndSimulation();
 ///////////////////////////////////////////
 
 // execute advection with semi-lagrangian scheme
-void Advect(Shader* advectionShader, Slab *velocity, Slab *source, Slab *dest, float dissipation, float timeStep);
+void Advect(Shader* advectionShader, Slab *velocity, Slab* obstacle, Slab *source, Slab *dest, float dissipation, float timeStep);
 
 // execute advection with mac-cormack scheme
-void AdvectMacCormack(Shader* advectionShader, Shader* macCormackShader, Slab *velocity, Slab *phi1_hat, Slab *phi2_hat, Slab* source, Slab* dest, float dissipation, float timeStep);
+void AdvectMacCormack(Shader* advectionShader, Shader* macCormackShader, Slab *velocity, Slab *phi1_hat, Slab *phi2_hat, Slab* obstacle, Slab* source, Slab* dest, float dissipation, float timeStep);
 
 // execute buoyancy
 void Buoyancy(Shader* buoyancyShader, Slab *velocity, Slab *temperature, Slab *density, Slab *dest, float ambientTemperature, float timeStep, float sigma, float kappa);
 
 // execute divergence
-void Divergence(Shader* divergenceShader, Slab *velocity, Slab *divergence, Slab *dest);
+void Divergence(Shader* divergenceShader, Slab *velocity, Slab *divergence, Slab *obstacle, Slab *dest);
 
 // execute jacobi
-void Jacobi(Shader* jacobiShader, Slab *pressure, Slab *divergence, Slab *dest, GLuint iterations);
+void Jacobi(Shader* jacobiShader, Slab *pressure, Slab *divergence, Slab *obstacle, Slab *dest, GLuint iterations);
 
 // apply external forces
 void ApplyExternalForces(Shader* externalForcesShader, Slab *velocity, Slab *dest, float timeStep, glm::vec3 force, glm::vec3 position, float radius);
@@ -77,7 +77,7 @@ void AddDensity(Shader* dyeShader, Slab *density, Slab *dest, glm::vec3 position
 void AddTemperature(Shader *dyeShader, Slab *temperature, Slab *dest, glm::vec3 position, float radius, float appliedTemperature);
 
 // apply pressure
-void ApplyPressure(Shader* pressureShader, Slab *velocity, Slab *pressure, Slab *dest);
+void ApplyPressure(Shader* pressureShader, Slab *velocity, Slab *pressure, Slab *obstacle, Slab *dest);
 
 /////////////////////////////////////////////
 

@@ -14,21 +14,25 @@ uniform vec2 InverseSize;
 
 void main()
 {
-    vec3 sceneColor = texture(SceneTexture, gl_FragCoord.xy * InverseSize).xyz;
+    vec4 sceneColor = texture(SceneTexture, gl_FragCoord.xy * InverseSize);
+    vec4 fluidColor = texture(FluidTexture, gl_FragCoord.xy * InverseSize);
 
     float sceneDepth = texture(SceneDepth, gl_FragCoord.xy * InverseSize).x;
     float fluidDepth = texture(FluidDepth, gl_FragCoord.xy * InverseSize).x;
     float rayDataDepth = - texture(RayDataDepth, gl_FragCoord.xy * InverseSize).w;
 
+    vec4 finalColor;
+
     if (sceneDepth < rayDataDepth && sceneDepth < fluidDepth)
-        FragColor = vec4(sceneColor, 1.0);
+    {   
+        float alpha = sceneColor.a;
+        finalColor = vec4(sceneColor.rgb * alpha + fluidColor.rgb * (1 - alpha), alpha);
+    }
     else
     {
-        vec4 fluidColor = texture(FluidTexture, gl_FragCoord.xy * InverseSize);
-        
         float alpha = fluidColor.a;
-        vec3 finalColor = fluidColor.rgb * alpha + sceneColor * (1 - alpha);
-        FragColor = vec4(finalColor, 1.0);
-
+        finalColor = vec4(fluidColor.rgb * alpha + sceneColor.rgb * (1 - alpha), alpha);
     }
+    FragColor = finalColor;
+    gl_FragDepth = min(sceneDepth, fluidDepth);
 }

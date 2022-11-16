@@ -114,7 +114,7 @@ void SetupShader(int shader_program);
 void PrintCurrentShader(int subroutine);
 
 // in this application, we have isolated the models rendering using a function, which will be called in each rendering step
-void RenderObjects(Shader &shader, Model &planeModel, Model &sphereModel, Model &bunnyModel, GLint render_pass, GLuint depthMap);
+void RenderObjects(Shader &shader, Model &planeModel, Model &sphereModel, Model &bunnyModel, Model &cubeModel, GLint render_pass, GLuint depthMap);
 
 // load image from disk and create an OpenGL texture
 GLint LoadTexture(const char* path);
@@ -143,11 +143,11 @@ GLuint pressureIterations = 40;
 // Buoyancy parameters
 GLfloat ambientTemperature = 0.0f;
 GLfloat ambientBuoyancy = 0.9f;
-GLfloat ambientWeight = 0.0f;
+GLfloat ambientWeight = 0.3f;
 
 // Dissipation factors
 GLfloat velocityDissipation = 0.8f; // 0.8f
-GLfloat densityDissipation = 0.9f; // 0.8f
+GLfloat densityDissipation = 0.95f; // 0.9f
 GLfloat temperatureDissipation = 0.9f; // 0.9f
 
 // rotation angle on Y axis
@@ -261,6 +261,9 @@ int main()
     Shader pressureShader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/simulation/pressure_projection.frag");
     Shader dyeShader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/simulation/add_dye.frag");
 
+    // Shader borderObstacleShaderLayered = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/obstacles/border.geom","src/shaders/rendering/fill.frag");
+    // Shader borderObstacleShader = Shader("src/shaders/simulation/load_vertices.vert","src/shaders/rendering/fill.frag");
+    
     Shader borderObstacleShaderLayered = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/obstacles/border.geom","src/shaders/obstacles/border.frag");
     Shader borderObstacleShader = Shader("src/shaders/simulation/load_vertices.vert","src/shaders/obstacles/border.frag");
 
@@ -268,6 +271,7 @@ int main()
     Shader raydataFrontShader = Shader("src/shaders/rendering/raydata/raydata.vert", "src/shaders/rendering/raydata/raydata_front.frag");
 
     Shader renderShader = Shader("src/shaders/rendering/raydata/raydata.vert", "src/shaders/rendering/raymarching.frag");
+    Shader boxShader = Shader("src/shaders/rendering/load_proj_vertices.vert", "src/shaders/rendering/fill.frag");
 
     Shader blendingShader = Shader("src/shaders/rendering/blending/blending.vert", "src/shaders/rendering/blending/blending.frag");
 
@@ -280,6 +284,7 @@ int main()
     // we load the images and store them in a vector
     textureID.push_back(LoadTexture("textures/UV_Grid_Sm.png"));
     textureID.push_back(LoadTexture("textures/marble-chess.jpg"));
+    textureID.push_back(LoadTexture("textures/glass.png"));
 
     // we load the model(s) (code of Model class is in include/utils/model.h)
     // Model cubeModel("models/cube.obj");
@@ -411,17 +416,17 @@ int main()
             BeginSimulation();
 
             // advect velocity
-            AdvectMacCormack(&advectionShader, &macCormackShader, &velocity_slab, &phi1_hat_slab, &phi2_hat_slab, &velocity_slab, &temp_velocity_slab, velocityDissipation, timeStep);
+            AdvectMacCormack(&advectionShader, &macCormackShader, &velocity_slab, &phi1_hat_slab, &phi2_hat_slab, &obstacle_slab, &velocity_slab, &temp_velocity_slab, velocityDissipation, timeStep);
             // Advect(&advectionShader, &velocity_slab, &velocity_slab, &temp_velocity_slab, velocityDissipation, timeStep);
             // SwapSlabs(&velocity_slab, &temp_velocity_slab);
 
             // // advect density
-            AdvectMacCormack(&advectionShader, &macCormackShader, &velocity_slab, &phi1_hat_slab, &phi2_hat_slab, &density_slab, &temp_pressure_divergence_slab, densityDissipation, timeStep);
+            AdvectMacCormack(&advectionShader, &macCormackShader, &velocity_slab, &phi1_hat_slab, &phi2_hat_slab, &obstacle_slab, &density_slab, &temp_pressure_divergence_slab, densityDissipation, timeStep);
             // Advect(&advectionShader, &velocity_slab, &density_slab, &temp_pressure_divergence_slab, densityDissipation, timeStep);
             // SwapSlabs(&density_slab, &temp_pressure_divergence_slab);
 
             // // advect temperature
-            AdvectMacCormack(&advectionShader, &macCormackShader, &velocity_slab, &phi1_hat_slab, &phi2_hat_slab, &temperature_slab, &temp_pressure_divergence_slab, temperatureDissipation, timeStep);
+            AdvectMacCormack(&advectionShader, &macCormackShader, &velocity_slab, &phi1_hat_slab, &phi2_hat_slab, &obstacle_slab, &temperature_slab, &temp_pressure_divergence_slab, temperatureDissipation, timeStep);
             // Advect(&advectionShader, &velocity_slab, &temperature_slab, &temp_pressure_divergence_slab, temperatureDissipation, timeStep);
             // SwapSlabs(&temperature_slab, &temp_pressure_divergence_slab);
 
@@ -452,13 +457,13 @@ int main()
             // ApplyExternalForces(&externalForcesShader, &velocity_slab, &temp_velocity_slab, timeStep, placeholder_force, force_center, force_radius);
 
             // we update the divergence texture
-            Divergence(&divergenceShader, &velocity_slab, &divergence_slab, &temp_pressure_divergence_slab);
+            Divergence(&divergenceShader, &velocity_slab, &divergence_slab, &obstacle_slab, &temp_pressure_divergence_slab);
 
             // we update the pressure texture
-            Jacobi(&jacobiShader, &pressure_slab, &divergence_slab, &temp_pressure_divergence_slab, pressureIterations);
+            Jacobi(&jacobiShader, &pressure_slab, &divergence_slab, &obstacle_slab, &temp_pressure_divergence_slab, pressureIterations);
 
             // we apply the pressure projection
-            ApplyPressure(&pressureShader, &velocity_slab, &pressure_slab, &temp_velocity_slab);
+            ApplyPressure(&pressureShader, &velocity_slab, &pressure_slab, &obstacle_slab, &temp_velocity_slab);
 
             // reset the state
             EndSimulation();
@@ -491,9 +496,12 @@ int main()
         glClear(GL_DEPTH_BUFFER_BIT);
 
         // we render the scene, using the shadow shader
-        RenderObjects(shadow_shader, planeModel, sphereModel, bunnyModel, SHADOWMAP, depthMap);
+        RenderObjects(shadow_shader, planeModel, sphereModel, bunnyModel, cubeModel, SHADOWMAP, depthMap);
 
         // /////////////////// STEP 2 - SCENE RENDERING FROM CAMERA ////////////////////////////////////////////////
+
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
         // we get the view matrix from the Camera class
         view = camera.GetViewMatrix();
@@ -544,16 +552,9 @@ int main()
         glUniform1f(f0Location, F0);
 
         // we render the scene
-        RenderObjects(illumination_shader, planeModel, sphereModel, bunnyModel, RENDER, depthMap);
+        RenderObjects(illumination_shader, planeModel, sphereModel, bunnyModel, cubeModel, RENDER, depthMap);
 
-        /////////////////// STEP 1 - RAYDATA: CREATING INFO FOR RAYMARCHING ////////////////////////////////////////////////
-        // we render the volume for raymarching
-
-        glViewport(0, 0, width, height);
-
-        glm::vec2 inverseScreenSize = glm::vec2(1.0f / width, 1.0f / height);
-
-        // setup volume rendering
+        // setup fluid volume matrices
         cubeModelMatrix = glm::mat4(1.0f);
         cubeNormalMatrix = glm::mat3(1.0f);
 
@@ -562,16 +563,56 @@ int main()
 
         cubeNormalMatrix = glm::inverseTranspose(glm::mat3(cubeModelMatrix));
 
+        // render fluid volume (back first to be included in the scene)
+        boxShader.Use();
+
+        glEnable(GL_CULL_FACE);
+
+        glUniformMatrix4fv(glGetUniformLocation(boxShader.Program, "model"), 1, GL_FALSE, glm::value_ptr(glm::scale(cubeModelMatrix, glm::vec3(1.001f, 1.001f, 1.001f))));
+        glUniformMatrix4fv(glGetUniformLocation(boxShader.Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
+        glUniformMatrix4fv(glGetUniformLocation(boxShader.Program, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
+        glUniform4fv(glGetUniformLocation(boxShader.Program, "color"), 1, glm::value_ptr(glm::vec4(1.0f, 1.0f, 1.0f, 0.1f)));
+
+        glCullFace(GL_FRONT);
+        cubeModel.Draw();
+
+        glDisable(GL_CULL_FACE);
+        glDisable(GL_BLEND);
+
+        /////////////////// STEP 1 - RAYDATA: CREATING INFO FOR RAYMARCHING ////////////////////////////////////////////////
+        // we create the raymarching data texture
+
+        glViewport(0, 0, width, height);
+
+        glm::vec2 inverseScreenSize = glm::vec2(1.0f / width, 1.0f / height);
+
         // we create the raydata texture
         RayData(raydataBackShader, raydataFrontShader, cubeModel, rayDataBack, rayDataFront, scene, cubeModelMatrix, view, projection, inverseScreenSize);
 
         //////////////////////////////// STEP 2 - RAYMARCHING ////////////////////////////////////////////////
 
-        // we render the simulation volume to display fluid
+        // we render the fluid
         RenderFluid(renderShader, cubeModel, cubeModelMatrix, view, projection, rayDataFront, rayDataBack, density_slab, fluidScene, inverseScreenSize, windowNearPlane, camera.Position, camera.Front);
 
         // we combine the fluid rendering with the scene rendering
         BlendRendering(blendingShader, scene, fluidScene, rayDataBack, inverseScreenSize);
+
+        // we render the front faces of the fluid volume
+        glEnable(GL_BLEND);
+        glEnable(GL_CULL_FACE);
+
+        boxShader.Use();
+
+        glUniformMatrix4fv(glGetUniformLocation(boxShader.Program, "model"), 1, GL_FALSE, glm::value_ptr(glm::scale(cubeModelMatrix, glm::vec3(1.001f, 1.001f, 1.001f))));
+        glUniformMatrix4fv(glGetUniformLocation(boxShader.Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
+        glUniformMatrix4fv(glGetUniformLocation(boxShader.Program, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
+        glUniform4fv(glGetUniformLocation(boxShader.Program, "color"), 1, glm::value_ptr(glm::vec4(1.0f, 1.0f, 1.0f, 0.1f)));
+
+        glCullFace(GL_BACK);
+        cubeModel.Draw();
+
+        glDisable(GL_BLEND);
+        glDisable(GL_CULL_FACE);
 
         // Swapping back and front buffers
         glfwSwapBuffers(window);
@@ -589,7 +630,7 @@ int main()
 
 //////////////////////////////////////////
 // we render the objects. We pass also the current rendering step, and the depth map generated in the first step, which is used by the shaders of the second step
-void RenderObjects(Shader &shader, Model &planeModel, Model &sphereModel, Model &bunnyModel, GLint render_pass, GLuint depthMap)
+void RenderObjects(Shader &shader, Model &planeModel, Model &sphereModel, Model &bunnyModel, Model &cubeModel, GLint render_pass, GLuint depthMap)
 {
     // For the second rendering step -> we pass the shadow map to the shaders
     if (render_pass==RENDER)
@@ -651,19 +692,6 @@ void RenderObjects(Shader &shader, Model &planeModel, Model &sphereModel, Model 
     // we render the sphere
     sphereModel.Draw();
 
-    // // CUBE
-    // // we reset to identity at each frame
-    // cubeModelMatrix = glm::mat4(1.0f);
-    // cubeNormalMatrix = glm::mat3(1.0f);
-    // // cubeModelMatrix = glm::translate(cubeModelMatrix, glm::vec3(0.0f, 0.0f, 0.5f));
-    // // cubeModelMatrix = glm::rotate(cubeModelMatrix, glm::radians(orientationY), glm::vec3(0.0f, 1.0f, 0.0f));
-    // // cubeModelMatrix = glm::scale(cubeModelMatrix, glm::vec3(0.8f, 0.8f, 0.8f));
-    // cubeNormalMatrix = glm::inverseTranspose(glm::mat3(view*cubeModelMatrix));
-    // glUniformMatrix4fv(glGetUniformLocation(shader.Program, "modelMatrix"), 1, GL_FALSE, glm::value_ptr(cubeModelMatrix));
-    // glUniformMatrix3fv(glGetUniformLocation(shader.Program, "normalMatrix"), 1, GL_FALSE, glm::value_ptr(cubeNormalMatrix));
-
-    // // we render the cube
-    // cubeModel.Draw();
 
     // BUNNY
     // we reset to identity at each frame
@@ -678,6 +706,26 @@ void RenderObjects(Shader &shader, Model &planeModel, Model &sphereModel, Model 
 
     // we render the bunny
     bunnyModel.Draw();
+
+    // // CUBE
+    // // we reset to identity at each frame
+    // cubeModelMatrix = glm::mat4(1.0f);
+    // cubeNormalMatrix = glm::mat3(1.0f);
+    // // cubeModelMatrix = glm::translate(cubeModelMatrix, glm::vec3(0.0f, 0.0f, 0.5f));
+    // // cubeModelMatrix = glm::rotate(cubeModelMatrix, glm::radians(orientationY), glm::vec3(0.0f, 1.0f, 0.0f));
+
+    // glActiveTexture(GL_TEXTURE0);
+    // glBindTexture(GL_TEXTURE_2D, textureID[2]);
+    // glUniform1i(textureLocation, 0);
+    // glUniform1f(repeatLocation, repeat);
+
+    // // cubeModelMatrix = glm::scale(cubeModelMatrix, glm::vec3(1.1f, 1.1f, 1.1f));
+    // cubeNormalMatrix = glm::inverseTranspose(glm::mat3(view*cubeModelMatrix));
+    // glUniformMatrix4fv(glGetUniformLocation(shader.Program, "modelMatrix"), 1, GL_FALSE, glm::value_ptr(cubeModelMatrix));
+    // glUniformMatrix3fv(glGetUniformLocation(shader.Program, "normalMatrix"), 1, GL_FALSE, glm::value_ptr(cubeNormalMatrix));
+
+    // // // we render the cube
+    // cubeModel.Draw();
 
     glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, 0);
     glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_2D, 0);

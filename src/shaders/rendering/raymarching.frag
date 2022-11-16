@@ -108,7 +108,7 @@ void main()
     float t = 0.5 / grid_size.x;
 
     float sampledDensity = 0;
-    for(float i = 0; i <= length(dir); i += t)
+    for(float i = 0; i <= 1.0; i += t)
     {
         vec3 p = start + dir * i;
 

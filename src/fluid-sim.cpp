@@ -235,7 +235,7 @@ void EndSimulation()
 ///////////////////////////////////////////
 
 // execute advection 
-void Advect(Shader* advectionShader, Slab *velocity, Slab *source, Slab *dest, float dissipation, float timeStep)
+void Advect(Shader* advectionShader, Slab *velocity, Slab* obstacle, Slab *source, Slab *dest, float dissipation, float timeStep)
 {
     advectionShader->Use();
 
@@ -246,6 +246,9 @@ void Advect(Shader* advectionShader, Slab *velocity, Slab *source, Slab *dest, f
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_3D, source->tex);
     glUniform1i(glGetUniformLocation(advectionShader->Program, "SourceTexture"), 1);
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_3D, obstacle->tex);
+    glUniform1i(glGetUniformLocation(advectionShader->Program, "ObstacleTexture"), 2);
 
     glUniform1f(glGetUniformLocation(advectionShader->Program, "timeStep"), timeStep);
     glUniform3fv(glGetUniformLocation(advectionShader->Program, "InverseSize"), 1, glm::value_ptr(InverseSize));
@@ -255,17 +258,18 @@ void Advect(Shader* advectionShader, Slab *velocity, Slab *source, Slab *dest, f
 
     glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_3D, 0);
     glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_3D, 0);
+    glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_3D, 0);
 
     // SwapSlabs(source, dest);
 }
 
-void AdvectMacCormack(Shader* advectionShader, Shader* macCormackShader, Slab *velocity, Slab *phi1_hat, Slab *phi2_hat, Slab* source, Slab* dest, float dissipation, float timeStep)
+void AdvectMacCormack(Shader* advectionShader, Shader* macCormackShader, Slab *velocity, Slab *phi1_hat, Slab *phi2_hat, Slab* obstacle, Slab* source, Slab* dest, float dissipation, float timeStep)
 {
     // first advection pass - compute phi1_hat
-    Advect(advectionShader, velocity, source, phi1_hat, dissipation, timeStep);
+    Advect(advectionShader, velocity, obstacle, source, phi1_hat, dissipation, timeStep);
 
     // second advection pass - compute phi2_hat
-    Advect(advectionShader, velocity, phi1_hat, phi2_hat, 1 / dissipation, -timeStep);
+    Advect(advectionShader, velocity, obstacle, phi1_hat, phi2_hat, 1 / dissipation, -timeStep);
 
     // third advection pass - compute new velocities
 
@@ -397,7 +401,7 @@ void AddTemperature(Shader *dyeShader, Slab *temperature, Slab *dest, glm::vec3 
 }
 
 // execute divergence
-void Divergence(Shader *divergenceShader, Slab *velocity, Slab *divergence, Slab *dest)
+void Divergence(Shader* divergenceShader, Slab *velocity, Slab *divergence, Slab *obstacle, Slab *dest)
 {
     divergenceShader->Use();
 
@@ -405,17 +409,22 @@ void Divergence(Shader *divergenceShader, Slab *velocity, Slab *divergence, Slab
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_3D, velocity->tex);
     glUniform1i(glGetUniformLocation(divergenceShader->Program, "VelocityTexture"), 0);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_3D, obstacle->tex);
+    glUniform1i(glGetUniformLocation(divergenceShader->Program, "ObstacleTexture"), 1);
+
     glUniform3fv(glGetUniformLocation(divergenceShader->Program, "InverseSize"), 1, glm::value_ptr(InverseSize));
 
     glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, GRID_DEPTH);
 
     glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_3D, 0);
+    glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_3D, 0);
 
     SwapSlabs(divergence, dest);
 }
 
 // execute jacobi
-void Jacobi(Shader *jacobiShader, Slab *pressure, Slab *divergence, Slab *dest, GLuint iterations)
+void Jacobi(Shader* jacobiShader, Slab *pressure, Slab *divergence, Slab *obstacle, Slab *dest, GLuint iterations)
 {
     jacobiShader->Use();
 
@@ -425,12 +434,17 @@ void Jacobi(Shader *jacobiShader, Slab *pressure, Slab *divergence, Slab *dest, 
     for (GLuint i = 0; i < iterations; i++)
     {
         glBindFramebuffer(GL_FRAMEBUFFER, dest->fbo);
+
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_3D, pressure->tex);
         glUniform1i(glGetUniformLocation(jacobiShader->Program, "Pressure"), 0);
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_3D, divergence->tex);
         glUniform1i(glGetUniformLocation(jacobiShader->Program, "Divergence"), 1);
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_3D, obstacle->tex);
+        glUniform1i(glGetUniformLocation(jacobiShader->Program, "Obstacle"), 2);
+
         glUniform3fv(glGetUniformLocation(jacobiShader->Program, "InverseSize"), 1, glm::value_ptr(InverseSize));
 
         glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, GRID_DEPTH);
@@ -440,11 +454,12 @@ void Jacobi(Shader *jacobiShader, Slab *pressure, Slab *divergence, Slab *dest, 
 
     glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_3D, 0);
     glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_3D, 0);
+    glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_3D, 0);
 }
 
 
 // apply pressure
-void ApplyPressure(Shader *pressureShader, Slab *velocity, Slab *pressure, Slab *dest)
+void ApplyPressure(Shader* pressureShader, Slab *velocity, Slab *pressure, Slab *obstacle, Slab *dest)
 {
     pressureShader->Use();
 
@@ -455,12 +470,17 @@ void ApplyPressure(Shader *pressureShader, Slab *velocity, Slab *pressure, Slab 
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_3D, pressure->tex);
     glUniform1i(glGetUniformLocation(pressureShader->Program, "PressureTexture"), 1);
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_3D, obstacle->tex);
+    glUniform1i(glGetUniformLocation(pressureShader->Program, "ObstacleTexture"), 2);
+
     glUniform3fv(glGetUniformLocation(pressureShader->Program, "InverseSize"), 1, glm::value_ptr(InverseSize));
 
     glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, GRID_DEPTH);
 
     glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_3D, 0);
     glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_3D, 0);
+    glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_3D, 0);
 
     SwapSlabs(velocity, dest);
 }
@@ -606,18 +626,24 @@ void BlendRendering(Shader &blendingShader, Scene &scene, Scene &fluid, Slab &ra
 
 void BorderObstacle(Shader &borderObstacleShader, Shader &borderObstacleShaderLayered, Slab &dest)
 {
-
     glViewport(0,0, GRID_WIDTH, GRID_HEIGHT);
+
+    glm::vec4 color = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
+
     borderObstacleShaderLayered.Use();
 
     glBindFramebuffer(GL_FRAMEBUFFER, dest.fbo);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    // glUniform3fv(glGetUniformLocation(borderObstacleShaderLayered.Program, "color"), 1, glm::value_ptr(color));
 
     glBindVertexArray(borderVAO);
     glDrawArraysInstanced(GL_LINE_STRIP, 0, 5, GRID_DEPTH);
 
     borderObstacleShader.Use();
     glBindVertexArray(quadVAO);
+
+    // glUniform4fv(glGetUniformLocation(borderObstacleShader.Program, "color"), 1, glm::value_ptr(color));
 
     glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, dest.tex, 0, 0);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
