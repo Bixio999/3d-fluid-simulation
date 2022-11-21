@@ -15,6 +15,47 @@ GLuint borderVAO = 0;
 
 //////////////////////////////////////
 
+void CheckFramebufferStatus()
+{
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+    {
+        std::cout << "Error creating framebuffer: ";
+
+        switch (glCheckFramebufferStatus(GL_FRAMEBUFFER))
+        {
+            case GL_FRAMEBUFFER_UNDEFINED:
+                std::cout << "GL_FRAMEBUFFER_UNDEFINED" << std::endl;
+                break;
+            case GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT:
+                std::cout << "GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT" << std::endl;
+                break;
+            case GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT:
+                std::cout << "GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT" << std::endl;
+                break;
+            case GL_FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER:
+                std::cout << "GL_FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER" << std::endl;
+                break;
+            case GL_FRAMEBUFFER_INCOMPLETE_READ_BUFFER:
+                std::cout << "GL_FRAMEBUFFER_INCOMPLETE_READ_BUFFER" << std::endl;
+                break;
+            case GL_FRAMEBUFFER_UNSUPPORTED:
+                std::cout << "GL_FRAMEBUFFER_UNSUPPORTED" << std::endl;
+                break;
+            case GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE:
+                std::cout << "GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE" << std::endl;
+                break;
+            case GL_FRAMEBUFFER_INCOMPLETE_LAYER_TARGETS:
+                std::cout << "GL_FRAMEBUFFER_INCOMPLETE_LAYER_TARGETS" << std::endl;
+                break;
+            default:
+                std::cout << "Unknown error" << std::endl;
+                break;
+        }
+    }
+}
+
+//////////////////////////////////////
+
 // create a simulation grid slab
 Slab CreateSlab(GLuint width, GLuint height, GLuint depth, GLushort dimensions)
 {
@@ -235,7 +276,7 @@ void EndSimulation()
 ///////////////////////////////////////////
 
 // execute advection 
-void Advect(Shader* advectionShader, Slab *velocity, Slab* obstacle, Slab *source, Slab *dest, float dissipation, float timeStep)
+void Advect(Shader* advectionShader, Slab *velocity, Obstacle *obstacle, Slab *source, Slab *dest, float dissipation, float timeStep)
 {
     advectionShader->Use();
 
@@ -263,7 +304,7 @@ void Advect(Shader* advectionShader, Slab *velocity, Slab* obstacle, Slab *sourc
     // SwapSlabs(source, dest);
 }
 
-void AdvectMacCormack(Shader* advectionShader, Shader* macCormackShader, Slab *velocity, Slab *phi1_hat, Slab *phi2_hat, Slab* obstacle, Slab* source, Slab* dest, float dissipation, float timeStep)
+void AdvectMacCormack(Shader* advectionShader, Shader* macCormackShader, Slab *velocity, Slab *phi1_hat, Slab *phi2_hat, Obstacle *obstacle, Slab* source, Slab* dest, float dissipation, float timeStep)
 {
     // first advection pass - compute phi1_hat
     Advect(advectionShader, velocity, obstacle, source, phi1_hat, dissipation, timeStep);
@@ -401,7 +442,7 @@ void AddTemperature(Shader *dyeShader, Slab *temperature, Slab *dest, glm::vec3 
 }
 
 // execute divergence
-void Divergence(Shader* divergenceShader, Slab *velocity, Slab *divergence, Slab *obstacle, Slab *dest)
+void Divergence(Shader* divergenceShader, Slab *velocity, Slab *divergence, Obstacle *obstacle, Slab *dest)
 {
     divergenceShader->Use();
 
@@ -424,7 +465,7 @@ void Divergence(Shader* divergenceShader, Slab *velocity, Slab *divergence, Slab
 }
 
 // execute jacobi
-void Jacobi(Shader* jacobiShader, Slab *pressure, Slab *divergence, Slab *obstacle, Slab *dest, GLuint iterations)
+void Jacobi(Shader* jacobiShader, Slab *pressure, Slab *divergence, Obstacle *obstacle, Slab *dest, GLuint iterations)
 {
     jacobiShader->Use();
 
@@ -459,7 +500,7 @@ void Jacobi(Shader* jacobiShader, Slab *pressure, Slab *divergence, Slab *obstac
 
 
 // apply pressure
-void ApplyPressure(Shader* pressureShader, Slab *velocity, Slab *pressure, Slab *obstacle, Slab *dest)
+void ApplyPressure(Shader* pressureShader, Slab *velocity, Slab *pressure, Obstacle *obstacle, Slab *dest)
 {
     pressureShader->Use();
 
@@ -624,7 +665,7 @@ void BlendRendering(Shader &blendingShader, Scene &scene, Scene &fluid, Slab &ra
 
 ///////////////////////// OBSTACLE FUNCTIONS /////////////////////////////
 
-void BorderObstacle(Shader &borderObstacleShader, Shader &borderObstacleShaderLayered, Slab &dest)
+void BorderObstacle(Shader &borderObstacleShader, Shader &borderObstacleShaderLayered, Obstacle &dest)
 {
     glViewport(0,0, GRID_WIDTH, GRID_HEIGHT);
 
@@ -635,7 +676,7 @@ void BorderObstacle(Shader &borderObstacleShader, Shader &borderObstacleShaderLa
     glBindFramebuffer(GL_FRAMEBUFFER, dest.fbo);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    // glUniform3fv(glGetUniformLocation(borderObstacleShaderLayered.Program, "color"), 1, glm::value_ptr(color));
+    glUniform3fv(glGetUniformLocation(borderObstacleShaderLayered.Program, "color"), 1, glm::value_ptr(color));
 
     glBindVertexArray(borderVAO);
     glDrawArraysInstanced(GL_LINE_STRIP, 0, 5, GRID_DEPTH);
@@ -643,13 +684,14 @@ void BorderObstacle(Shader &borderObstacleShader, Shader &borderObstacleShaderLa
     borderObstacleShader.Use();
     glBindVertexArray(quadVAO);
 
-    // glUniform4fv(glGetUniformLocation(borderObstacleShader.Program, "color"), 1, glm::value_ptr(color));
+    glUniform4fv(glGetUniformLocation(borderObstacleShader.Program, "color"), 1, glm::value_ptr(color));
 
-    glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, dest.tex, 0, 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, dest.firstLayerFBO);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
-    glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, dest.tex, 0, GRID_DEPTH - 1);
+    glBindFramebuffer(GL_FRAMEBUFFER, dest.lastLayerFBO);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
     // for(int i = 0; i < GRID_DEPTH; i++)
     // {
     //     glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, dest.tex, 0, i);
@@ -660,4 +702,282 @@ void BorderObstacle(Shader &borderObstacleShader, Shader &borderObstacleShaderLa
 
     glBindVertexArray(0);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+Obstacle CreateObstacleBuffer(GLuint width, GLuint height, GLuint depth)
+{
+    GLuint fbo;
+
+    glGenFramebuffers(1, &fbo);
+
+
+    GLuint texture;
+
+    glGenTextures(1, &texture);
+
+    glBindTexture(GL_TEXTURE_3D, texture);
+
+    glTexImage3D(GL_TEXTURE_3D, 0, GL_R16F, width, height, depth, 0, GL_RED, GL_HALF_FLOAT, NULL);
+
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, texture, 0);
+
+
+    GLuint depthStencil = 0;
+
+    glGenTextures(1, &depthStencil);
+
+    glBindTexture(GL_TEXTURE_2D_ARRAY, depthStencil);
+
+    glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_DEPTH24_STENCIL8, width, height, depth, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, NULL);
+
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, depthStencil, 0);
+
+    std::cout << "\tChecking for general obstacle buffer FBO completeness: " << std::endl;
+    CheckFramebufferStatus();
+
+    GLuint firstLayerFBO, lastLayerFBO;
+
+    glGenFramebuffers(1, &firstLayerFBO);
+    glGenFramebuffers(1, &lastLayerFBO);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, firstLayerFBO);
+    glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, texture, 0, 0);
+    glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, depthStencil, 0, 0);
+
+    std::cout << "\tChecking for first layer FBO completeness: " << std::endl;
+    CheckFramebufferStatus();
+
+    glBindFramebuffer(GL_FRAMEBUFFER, lastLayerFBO);
+    glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, texture, 0, depth - 1);
+    glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, depthStencil, 0, depth - 1);
+
+    std::cout << "\tChecking for last layer FBO completeness: " << std::endl;
+    CheckFramebufferStatus();
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glBindTexture(GL_TEXTURE_3D, 0);
+    glBindTexture(GL_TEXTURE_2D_ARRAY, 0);
+
+    return {fbo, texture, depthStencil, firstLayerFBO, lastLayerFBO};
+}
+
+Slab CreateStencilBuffer(GLuint width, GLuint height)
+{
+    GLuint fbo;
+
+    glGenFramebuffers(1, &fbo);
+
+    GLuint tex;
+    glGenTextures(1, &tex);
+    glBindTexture(GL_TEXTURE_2D, tex);
+
+    // glTexImage2D(GL_TEXTURE_2D, 0, GL_STENCIL_INDEX8, width, height, 0, GL_STENCIL_INDEX, GL_UNSIGNED_BYTE, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, width, height, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, NULL);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, tex, 0);
+    // glDrawBuffer(GL_NONE);
+    // glReadBuffer(GL_NONE);
+
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+    {
+        std::cout << "Error creating framebuffer: ";
+
+        switch (glCheckFramebufferStatus(GL_FRAMEBUFFER))
+        {
+            case GL_FRAMEBUFFER_UNDEFINED:
+                std::cout << "GL_FRAMEBUFFER_UNDEFINED" << std::endl;
+                break;
+            case GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT:
+                std::cout << "GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT" << std::endl;
+                break;
+            case GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT:
+                std::cout << "GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT" << std::endl;
+                break;
+            case GL_FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER:
+                std::cout << "GL_FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER" << std::endl;
+                break;
+            case GL_FRAMEBUFFER_INCOMPLETE_READ_BUFFER:
+                std::cout << "GL_FRAMEBUFFER_INCOMPLETE_READ_BUFFER" << std::endl;
+                break;
+            case GL_FRAMEBUFFER_UNSUPPORTED:
+                std::cout << "GL_FRAMEBUFFER_UNSUPPORTED" << std::endl;
+                break;
+            case GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE:
+                std::cout << "GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE" << std::endl;
+                break;
+            case GL_FRAMEBUFFER_INCOMPLETE_LAYER_TARGETS:
+                std::cout << "GL_FRAMEBUFFER_INCOMPLETE_LAYER_TARGETS" << std::endl;
+                break;
+            default:
+                std::cout << "Unknown error" << std::endl;
+                break;
+        }
+    }
+
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    return {fbo, tex};
+}
+
+void DynamicObstacle(Shader &stencilObstacleShader, Obstacle &dest, Model &obstacleModel, glm::mat4 &model, glm::vec3 translation, GLfloat scale)
+{
+    glViewport(0,0, GRID_WIDTH, GRID_HEIGHT);
+
+    glm::mat4 projection, view;
+
+    GLfloat far_plane = 100, near_plane = 1;
+    GLfloat frustumSize = scale;
+
+    glm::vec3 viewEye = glm::vec3(translation);
+    viewEye.y = viewEye.y * scale + 1.0f;
+    // std::cout << "viewEye: " << viewEye.x << ", " << viewEye.y << ", " << viewEye.z << std::endl;
+    // std::cout << "translation: " << translation.x << ", " << translation.y << ", " << translation.z << std::endl;
+
+    glm::vec3 viewCenter = translation;
+    viewCenter.x += glm::epsilon<float>(); // avoid gimbal lock
+    glm::vec3 viewUp = glm::vec3(0.0f, 1.0f, 0.0f);
+    view = glm::lookAt(viewEye, viewCenter, viewUp);
+
+    // std::cout << view[0][0] << " " << view[0][1] << " " << view[0][2] << " " << view[0][3] << std::endl;
+    // std::cout << view[1][0] << " " << view[1][1] << " " << view[1][2] << " " << view[1][3] << std::endl;
+    // std::cout << view[2][0] << " " << view[2][1] << " " << view[2][2] << " " << view[2][3] << std::endl;
+    // std::cout << view[3][0] << " " << view[3][1] << " " << view[3][2] << " " << view[3][3] << std::endl;
+
+    glEnable(GL_STENCIL_TEST);
+    glEnable(GL_DEPTH_TEST);
+
+    glStencilFunc(GL_ALWAYS, 1, 0xFF);
+    glStencilMask(0xFF);
+    // glStencilOp(GL_KEEP, GL_INCR_WRAP, GL_DECR_WRAP);
+    glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, dest.fbo);
+    glClear(GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
+    stencilObstacleShader.Use();
+
+    projection = glm::ortho(-frustumSize, frustumSize, -frustumSize, frustumSize, near_plane, far_plane);
+    glUniformMatrix4fv(glGetUniformLocation(stencilObstacleShader.Program, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
+    glUniformMatrix4fv(glGetUniformLocation(stencilObstacleShader.Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
+    glUniformMatrix4fv(glGetUniformLocation(stencilObstacleShader.Program, "model"), 1, GL_FALSE, glm::value_ptr(model));
+
+    glUniform1f(glGetUniformLocation(stencilObstacleShader.Program, "scaling_factor"), scale);
+    glUniform1f(glGetUniformLocation(stencilObstacleShader.Program, "grid_depth"), GRID_DEPTH);
+
+    glUniform3fv(glGetUniformLocation(stencilObstacleShader.Program, "color"), 1, glm::value_ptr(glm::vec3(1.0f, 1.0f, 1.0f)));
+
+    obstacleModel.DrawInstanced(GRID_DEPTH);
+
+    // glDisable(GL_DEPTH_TEST);
+    glStencilFunc(GL_GREATER, 0, 0xFF);
+    glStencilMask(0x00);
+
+    obstacleModel.DrawInstanced(GRID_DEPTH);
+
+    glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+    glDisable(GL_STENCIL_TEST);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    /*
+     * PROBLEMA: DEVO RENDERIZZARE L'OGGETTO PER OGNI LAYER MA HO BISOGNO DI MANTERE IL BUFFER DI STENCIL;
+        * COLOR E DEPTH/STENCIL PRESENTI IN DEST FRAMEBUFFER
+
+        * SOLUZIONE ??? : CREARE UN FRAMEBUFFER PER OGNI LAYER E RENDERIZZARE OGNI LAYER IN UN FRAMEBUFFER DIVERSO
+
+        * ALTERNATIVA: CREARE UN ARRAY DI PROJECTION E USARE LAYERED RENDERING RICHIAMANDO LA MATRICE CORRETTA CON gl_Layer
+            * POSSIBILITÀ DI USARE 
+
+
+
+        * NOTA: RENDERDOC NON VISUALIZZA LO STENCIL BUFFER - INAFFIDABILE PER DEBUGGARE
+     */
+
+
+    // for(int i = 0; i < GRID_DEPTH; i++)
+    // {
+    //     near_plane = 2 * scale * (1.0f - (float) (i + 1) / GRID_DEPTH) + 1.0f;
+    //     // std::cout << "near_plane: " << near_plane << " ; slice: " << i << std::endl;
+    //     projection = glm::ortho(-frustumSize, frustumSize, -frustumSize, frustumSize, near_plane, far_plane);
+
+    //     glEnable(GL_DEPTH_TEST);
+    //     // glEnable(GL_STENCIL_TEST);
+    //     glStencilFunc(GL_ALWAYS, 1, 0xFF);
+    //     glStencilMask(0xFF);
+    //     glStencilOp(GL_KEEP, GL_INCR_WRAP, GL_DECR_WRAP);
+    //     // glStencilOp(GL_REPLACE, GL_REPLACE, GL_REPLACE);
+
+    //     // glStencilOpSeparate(GL_FRONT, GL_KEEP, GL_DECR_WRAP, GL_DECR_WRAP);
+    //     // glStencilOpSeparate(GL_BACK, GL_KEEP, GL_INCR_WRAP, GL_INCR_WRAP);
+
+    //     // glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, dest.tex, 0, i);
+    //     // glBindFramebuffer(GL_FRAMEBUFFER, dest.fbo);
+    //     glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, dest.tex, 0, i);
+    //     glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, stencil_buffer.tex, 0, i);
+    //     // glClearStencil(0xFF);
+    //     glClear(GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+    //     fillShader.Use();
+
+    //     glUniformMatrix4fv(glGetUniformLocation(fillShader.Program, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
+    //     glUniformMatrix4fv(glGetUniformLocation(fillShader.Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
+    //     glUniformMatrix4fv(glGetUniformLocation(fillShader.Program, "model"), 1, GL_FALSE, glm::value_ptr(model));
+
+    //     obstacleModel.Draw();
+
+    //     glDisable(GL_DEPTH_TEST);
+    //     glStencilFunc(GL_GREATER, 0, 0xFF);
+    //     glStencilMask(0x00);
+    //     // glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+
+    //     // glBindFramebuffer(GL_FRAMEBUFFER, dest.fbo);
+
+    //     obstacleModel.Draw();
+
+        // glDisable(GL_DEPTH_TEST);
+        // glDisable(GL_STENCIL_TEST);
+
+        // glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+        // glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, dest.tex, 0, i);
+        // glBindVertexArray(quadVAO);
+        // stencilToObstacleShader.Use();
+
+        // glActiveTexture(GL_TEXTURE0);
+        // glBindTexture(GL_TEXTURE_2D, stencil_buffer.tex);
+        // glUniform1i(glGetUniformLocation(stencilToObstacleShader.Program, "StencilTexture"), 0);
+        // glUniform2fv(glGetUniformLocation(stencilToObstacleShader.Program, "InverseSize"), 1, glm::value_ptr(glm::vec2(1 / GRID_WIDTH, 1 / GRID_HEIGHT)));
+
+        // glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+        // glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, 0);
+        // glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    // }
+    //     glDisable(GL_STENCIL_TEST);
+    //     glDisable(GL_DEPTH_TEST);
+
+
+    // // glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, 0);
+    // glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }

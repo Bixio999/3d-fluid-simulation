@@ -82,6 +82,13 @@ public:
             this->meshes[i].Draw();
     }
 
+    // instanced model rendering: calls instanced rendering methods of each instance of Mesh class in the vector
+    void DrawInstanced(GLuint instances)
+    {
+        for(GLuint i = 0; i < this->meshes.size(); i++)
+            this->meshes[i].DrawInstanced(instances);
+    }
+
     //////////////////////////////////////////
 
 

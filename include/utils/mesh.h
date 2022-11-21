@@ -137,6 +137,17 @@ public:
         glBindVertexArray(0);
     }
 
+    // instanced rendering of mesh
+    void DrawInstanced(GLuint numInstances)
+    {
+        // VAO is made "active"
+        glBindVertexArray(this->VAO);
+        // rendering of data in the VAO
+        glDrawElementsInstanced(GL_TRIANGLES, this->indices.size(), GL_UNSIGNED_INT, 0, numInstances);
+        // VAO is "detached"
+        glBindVertexArray(0);
+    }
+
 private:
 
     // VBO and EBO
