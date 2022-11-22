@@ -4,12 +4,17 @@ out vec4 fragColor;
 
 uniform vec3 grid_size;
 
-uniform sampler2D SceneDepth;
+uniform sampler2D SceneDepthTexture;
 
 uniform vec2 InverseSize;
 
 in vec4 mvpPos;
 in vec3 texPos;
+in vec3 ogPos;
+
+uniform mat4 projection;
+uniform mat4 view;
+uniform mat4 model;
 
 vec3 TextureVoxelClamp(vec3 pos)
 {
@@ -18,6 +23,7 @@ vec3 TextureVoxelClamp(vec3 pos)
     pos /= grid_size;
     return pos;
 }
+
 
 void main()
 {
@@ -29,7 +35,28 @@ void main()
     // depth += 0.5;
     // depth /= grid_size.z;
 
-    float sceneDepth = texture(SceneDepth, InverseSize * gl_FragCoord.xy).r;
+    vec3 end = TextureVoxelClamp(texPos);
 
-    fragColor = vec4(TextureVoxelClamp(texPos), - min(gl_FragCoord.z, sceneDepth));
+    float sceneDepth = texture(SceneDepthTexture, InverseSize * gl_FragCoord.xy).r;
+
+    if (sceneDepth < gl_FragCoord.z)
+    {
+        vec3 scenePos = 2 * vec3(InverseSize * gl_FragCoord.xy, sceneDepth) - 1.0;
+        
+        vec4 localScenePos = inverse(projection * view) * vec4(scenePos, 1.0);
+        localScenePos /= localScenePos.w;
+        localScenePos = localScenePos * transpose(inverse(model));
+
+        scenePos = localScenePos.xyz;
+
+        scenePos = (scenePos + 1.0) / 2.0;
+        scenePos.z = 1 - scenePos.z;
+        // scenePos = clamp(scenePos, 0.0, 1.0);
+
+        // scenePos = TextureVoxelClamp(scenePos);
+
+        end = scenePos;
+    }
+ 
+    fragColor = vec4(end, - gl_FragCoord.z);
 }

@@ -55,6 +55,7 @@ void main()
     vec4 rd_back = texture(RayDataBack, gl_FragCoord.xy * InverseSize);
     vec4 rd_front = texture(RayDataFront, gl_FragCoord.xy * InverseSize);
 
+    // object in front of volume
     if (rd_front.x < 0.0)
         discard;
 
