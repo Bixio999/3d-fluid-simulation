@@ -845,36 +845,36 @@ void DynamicObstacle(Shader &stencilObstacleShader, Obstacle &dest, Model &obsta
 {
     glViewport(0,0, GRID_WIDTH, GRID_HEIGHT);
 
+
     glm::mat4 projection, view;
 
     GLfloat far_plane = 100, near_plane = 1;
     GLfloat frustumSize = scale;
 
     glm::vec3 viewEye = glm::vec3(translation);
-    viewEye.y = viewEye.y * scale + 1.0f;
-    // std::cout << "viewEye: " << viewEye.x << ", " << viewEye.y << ", " << viewEye.z << std::endl;
-    // std::cout << "translation: " << translation.x << ", " << translation.y << ", " << translation.z << std::endl;
+    viewEye.z += (scale + 1.0f);
 
     glm::vec3 viewCenter = translation;
     viewCenter.x += glm::epsilon<float>(); // avoid gimbal lock
     glm::vec3 viewUp = glm::vec3(0.0f, 1.0f, 0.0f);
     view = glm::lookAt(viewEye, viewCenter, viewUp);
 
-    // std::cout << view[0][0] << " " << view[0][1] << " " << view[0][2] << " " << view[0][3] << std::endl;
-    // std::cout << view[1][0] << " " << view[1][1] << " " << view[1][2] << " " << view[1][3] << std::endl;
-    // std::cout << view[2][0] << " " << view[2][1] << " " << view[2][2] << " " << view[2][3] << std::endl;
-    // std::cout << view[3][0] << " " << view[3][1] << " " << view[3][2] << " " << view[3][3] << std::endl;
+    glBindFramebuffer(GL_FRAMEBUFFER, dest.fbo);
 
+    glEnable(GL_BLEND);
     glEnable(GL_STENCIL_TEST);
     glEnable(GL_DEPTH_TEST);
 
-    glStencilFunc(GL_ALWAYS, 1, 0xFF);
-    glStencilMask(0xFF);
-    // glStencilOp(GL_KEEP, GL_INCR_WRAP, GL_DECR_WRAP);
-    glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+    glEnable(GL_CULL_FACE);
 
-    glBindFramebuffer(GL_FRAMEBUFFER, dest.fbo);
+    glStencilOpSeparate(GL_FRONT, GL_KEEP, GL_KEEP, GL_DECR);
+    glStencilOpSeparate(GL_BACK, GL_KEEP, GL_KEEP, GL_INCR);
+
+    glStencilFunc(GL_ALWAYS, 0, 0xFF);
+    glStencilMask(0xFF);
+
     glClear(GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+    glDepthMask(GL_FALSE);
 
     stencilObstacleShader.Use();
 
@@ -886,98 +886,27 @@ void DynamicObstacle(Shader &stencilObstacleShader, Obstacle &dest, Model &obsta
     glUniform1f(glGetUniformLocation(stencilObstacleShader.Program, "scaling_factor"), scale);
     glUniform1f(glGetUniformLocation(stencilObstacleShader.Program, "grid_depth"), GRID_DEPTH);
 
-    glUniform3fv(glGetUniformLocation(stencilObstacleShader.Program, "color"), 1, glm::value_ptr(glm::vec3(1.0f, 1.0f, 1.0f)));
+    glUniform4fv(glGetUniformLocation(stencilObstacleShader.Program, "color"), 1, glm::value_ptr(glm::vec4(0.0f)));
 
+    glCullFace(GL_FRONT);
     obstacleModel.DrawInstanced(GRID_DEPTH);
 
-    // glDisable(GL_DEPTH_TEST);
-    glStencilFunc(GL_GREATER, 0, 0xFF);
+    glCullFace(GL_BACK);
+    obstacleModel.DrawInstanced(GRID_DEPTH);
+
+    glStencilFunc(GL_NOTEQUAL, 0, 0xFF);
     glStencilMask(0x00);
 
+    glDisable(GL_CULL_FACE);
+    glUniform4fv(glGetUniformLocation(stencilObstacleShader.Program, "color"), 1, glm::value_ptr(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)));
     obstacleModel.DrawInstanced(GRID_DEPTH);
 
     glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+    glStencilMask(0xFF);
+    glDepthMask(GL_TRUE);
     glDisable(GL_STENCIL_TEST);
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_BLEND);
+
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-    /*
-     * PROBLEMA: DEVO RENDERIZZARE L'OGGETTO PER OGNI LAYER MA HO BISOGNO DI MANTERE IL BUFFER DI STENCIL;
-        * COLOR E DEPTH/STENCIL PRESENTI IN DEST FRAMEBUFFER
-
-        * SOLUZIONE ??? : CREARE UN FRAMEBUFFER PER OGNI LAYER E RENDERIZZARE OGNI LAYER IN UN FRAMEBUFFER DIVERSO
-
-        * ALTERNATIVA: CREARE UN ARRAY DI PROJECTION E USARE LAYERED RENDERING RICHIAMANDO LA MATRICE CORRETTA CON gl_Layer
-            * POSSIBILITÀ DI USARE 
-
-
-
-        * NOTA: RENDERDOC NON VISUALIZZA LO STENCIL BUFFER - INAFFIDABILE PER DEBUGGARE
-     */
-
-
-    // for(int i = 0; i < GRID_DEPTH; i++)
-    // {
-    //     near_plane = 2 * scale * (1.0f - (float) (i + 1) / GRID_DEPTH) + 1.0f;
-    //     // std::cout << "near_plane: " << near_plane << " ; slice: " << i << std::endl;
-    //     projection = glm::ortho(-frustumSize, frustumSize, -frustumSize, frustumSize, near_plane, far_plane);
-
-    //     glEnable(GL_DEPTH_TEST);
-    //     // glEnable(GL_STENCIL_TEST);
-    //     glStencilFunc(GL_ALWAYS, 1, 0xFF);
-    //     glStencilMask(0xFF);
-    //     glStencilOp(GL_KEEP, GL_INCR_WRAP, GL_DECR_WRAP);
-    //     // glStencilOp(GL_REPLACE, GL_REPLACE, GL_REPLACE);
-
-    //     // glStencilOpSeparate(GL_FRONT, GL_KEEP, GL_DECR_WRAP, GL_DECR_WRAP);
-    //     // glStencilOpSeparate(GL_BACK, GL_KEEP, GL_INCR_WRAP, GL_INCR_WRAP);
-
-    //     // glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, dest.tex, 0, i);
-    //     // glBindFramebuffer(GL_FRAMEBUFFER, dest.fbo);
-    //     glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, dest.tex, 0, i);
-    //     glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, stencil_buffer.tex, 0, i);
-    //     // glClearStencil(0xFF);
-    //     glClear(GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-    //     fillShader.Use();
-
-    //     glUniformMatrix4fv(glGetUniformLocation(fillShader.Program, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
-    //     glUniformMatrix4fv(glGetUniformLocation(fillShader.Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
-    //     glUniformMatrix4fv(glGetUniformLocation(fillShader.Program, "model"), 1, GL_FALSE, glm::value_ptr(model));
-
-    //     obstacleModel.Draw();
-
-    //     glDisable(GL_DEPTH_TEST);
-    //     glStencilFunc(GL_GREATER, 0, 0xFF);
-    //     glStencilMask(0x00);
-    //     // glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
-
-    //     // glBindFramebuffer(GL_FRAMEBUFFER, dest.fbo);
-
-    //     obstacleModel.Draw();
-
-        // glDisable(GL_DEPTH_TEST);
-        // glDisable(GL_STENCIL_TEST);
-
-        // glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-        // glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, dest.tex, 0, i);
-        // glBindVertexArray(quadVAO);
-        // stencilToObstacleShader.Use();
-
-        // glActiveTexture(GL_TEXTURE0);
-        // glBindTexture(GL_TEXTURE_2D, stencil_buffer.tex);
-        // glUniform1i(glGetUniformLocation(stencilToObstacleShader.Program, "StencilTexture"), 0);
-        // glUniform2fv(glGetUniformLocation(stencilToObstacleShader.Program, "InverseSize"), 1, glm::value_ptr(glm::vec2(1 / GRID_WIDTH, 1 / GRID_HEIGHT)));
-
-        // glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-
-        // glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, 0);
-        // glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-    // }
-    //     glDisable(GL_STENCIL_TEST);
-    //     glDisable(GL_DEPTH_TEST);
-
-
-    // // glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, 0);
-    // glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }

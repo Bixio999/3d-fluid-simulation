@@ -15,10 +15,10 @@ void main()
 {
     vInstance = gl_InstanceID;
 
-    float nearPlane = 2 * scaling_factor * (1.0 - (gl_InstanceID + 1) / grid_depth) + 1.0;
+    float nearPlane = 2 * scaling_factor * ((gl_InstanceID + 1) / grid_depth) + 1.0;
     float farPlane = 100;
 
-    float newProj1 = -2 / (farPlane - nearPlane);
+    float newProj1 = -2.0 / (farPlane - nearPlane);
     float newProj2 = -(farPlane + nearPlane) / (farPlane - nearPlane);
 
     mat4 newProj = mat4(projection);
