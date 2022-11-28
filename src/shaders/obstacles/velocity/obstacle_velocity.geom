@@ -8,14 +8,33 @@ in int vInstance[3];
 in vec3 planePoint[3];
 in vec3 planeNormal[3];
 in vec3 vertVelocity[3];
+in vec3 mPos[3];
+
+uniform float grid_depth;
+uniform float texelDiagonal;
+uniform mat4 projection;
+uniform mat4 view;
 
 out vec3 velocity;
 out float layer;
 
+// debugging
+out int numIntersections;
+out float t;
+out int result;
+
 struct Point {
     vec3 position;
     vec3 velocity;
+    int intersectionResult;
+    float t;
 };
+
+vec4 World2ClipCoords(vec3 pos)
+{
+    vec4 temp = projection * view * vec4(pos, 1.0);
+    return temp / temp.w;
+}
 
 int SegmentPlaneIntersection(vec3 segmentPoint, vec3 segmentDir, vec3 planePoint, vec3 planeNormal, out float t)
 {
@@ -41,16 +60,22 @@ int SegmentPlaneIntersection(vec3 segmentPoint, vec3 segmentDir, vec3 planePoint
 
 void EmitTriangle(Point a, Point b, Point c)
 {
-    gl_Position = vec4(a.position, 1);
+    gl_Position = World2ClipCoords(a.position);
     velocity = a.velocity;
+    t = a.t;
+    result = a.intersectionResult;
     EmitVertex();
 
-    gl_Position = vec4(b.position, 1);
+    gl_Position = World2ClipCoords(b.position);
     velocity = b.velocity;
+    t = b.t;
+    result = b.intersectionResult;
     EmitVertex();
 
-    gl_Position = vec4(c.position, 1);
+    gl_Position = World2ClipCoords(c.position);
     velocity = c.velocity;
+    t = c.t;
+    result = c.intersectionResult;
     EmitVertex();
 
     EndPrimitive();
@@ -59,8 +84,8 @@ void EmitTriangle(Point a, Point b, Point c)
 void EmitSegment(Point a1, Point b1)
 {
     // find the triangle face normal
-    vec3 v1 = gl_in[0].gl_Position.xyz - gl_in[1].gl_Position.xyz;
-    vec3 v2 = gl_in[0].gl_Position.xyz - gl_in[2].gl_Position.xyz;
+    vec3 v1 = mPos[1] - mPos[0];
+    vec3 v2 = mPos[2] - mPos[0];
 
     vec3 faceNormal = normalize(cross(v1, v2));
 
@@ -68,10 +93,10 @@ void EmitSegment(Point a1, Point b1)
     vec3 projFaceNormal = faceNormal - dot(faceNormal, planeNormal[0]) * planeNormal[0];
 
     // extrude the segment along the projection of the face normal
-    vec3 extrude = normalize(projFaceNormal) * 1.41421;
+    vec3 extrude = normalize(projFaceNormal) * texelDiagonal;
 
-    Point a2 = Point(a1.position + extrude, a1.velocity);
-    Point b2 = Point(b1.position + extrude, b1.velocity);
+    Point a2 = Point(a1.position + extrude, a1.velocity, a1.intersectionResult, a1.t);
+    Point b2 = Point(b1.position + extrude, b1.velocity, b1.intersectionResult, b1.t);
 
     // emit the two triangles
     EmitTriangle(a1, b1, a2);
@@ -87,42 +112,50 @@ void main()
     vec3 n = planeNormal[0];
 
     Point intersections[3];
-    int numIntersections = 0;
+    numIntersections = 0;
 
     for (int i = 0; i < 3 && numIntersections < 3; i++)
     {
-        vec3 a = gl_in[i].gl_Position.xyz;
-        vec3 b = gl_in[(i + 1) % 3].gl_Position.xyz;
+        vec3 a = mPos[i];
+        vec3 b = mPos[(i + 1) % 3];
 
         vec3 vel_a = vertVelocity[i];
         vec3 vel_b = vertVelocity[(i + 1) % 3];
 
-        vec3 ab = normalize(b - a);
+        vec3 ab = b - a;
 
-        float t;
+        // float t;
 
-        int result = SegmentPlaneIntersection(a, ab, p0, n, t);
+        result = SegmentPlaneIntersection(a, normalize(ab), p0, n, t);
 
         switch(result)
         {
             case 0:
                 break;
             case 1:
-                intersections[numIntersections++].position = a + ab * t;
+                intersections[numIntersections].position = a + ab * t;
+                intersections[numIntersections].intersectionResult = result;
+                intersections[numIntersections].t = t;
                 intersections[numIntersections++].velocity = mix(vel_a, vel_b, t);
                 break;
             case 2:
                 if (numIntersections < 2)
                 {
-                    intersections[numIntersections++].position = a;
+                    intersections[numIntersections].position = a;
+                    intersections[numIntersections].intersectionResult = result;
+                    intersections[numIntersections].t = t;
                     intersections[numIntersections++].velocity = vel_a;
 
-                    intersections[numIntersections++].position = b;
+                    intersections[numIntersections].position = b;
+                    intersections[numIntersections].intersectionResult = result;
+                    intersections[numIntersections].t = t;
                     intersections[numIntersections++].velocity = vel_b;
                 }
                 else
                 {
-                    intersections[numIntersections++].position = b;
+                    intersections[numIntersections].position = b;
+                    intersections[numIntersections].intersectionResult = result;
+                    intersections[numIntersections].t = t;
                     intersections[numIntersections++].velocity = vel_b;
                 }
                 break;
@@ -155,11 +188,13 @@ void main()
         case 0:
             break;
         case 1:
-            gl_Position = vec4(intersections[0].position, 1);
+            gl_Position = World2ClipCoords(intersections[0].position);
             velocity = intersections[0].velocity;
+            t = intersections[0].t;
+            result = intersections[0].intersectionResult;
             EmitVertex();
-            EmitVertex();
-            EmitVertex();
+            // EmitVertex();
+            // EmitVertex();
             EndPrimitive();
             break;
         case 2:

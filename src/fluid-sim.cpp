@@ -907,9 +907,10 @@ void DynamicObstaclePosition(Shader &stencilObstacleShader, ObstacleSlab &dest, 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-void DynamicObstacleVelocity(Shader &obstacleVelocityShader, Slab &obstacle_velocity, Slab &dest, ObstacleObject &obstacle, glm::mat4 view, glm::mat4 projection, glm::vec3 firstLayerPoint, glm::vec3 layersDir, GLfloat deltaTime)
+void DynamicObstacleVelocity(Shader &obstacleVelocityShader, Slab &obstacle_velocity, Slab &dest, ObstacleObject &obstacle, glm::mat4 view, glm::mat4 projection, glm::vec3 firstLayerPoint, glm::vec3 layersDir, GLfloat deltaTime, GLfloat texelDiagonalSize)
 {
     glBindFramebuffer(GL_FRAMEBUFFER, dest.fbo);
+    glClear(GL_COLOR_BUFFER_BIT);
 
     obstacleVelocityShader.Use();
 
@@ -925,6 +926,7 @@ void DynamicObstacleVelocity(Shader &obstacleVelocityShader, Slab &obstacle_velo
     glUniform1f(glGetUniformLocation(obstacleVelocityShader.Program, "grid_depth"), GRID_DEPTH);
 
     glUniform1f(glGetUniformLocation(obstacleVelocityShader.Program, "deltaTime"), deltaTime);
+    glUniform1f(glGetUniformLocation(obstacleVelocityShader.Program, "texelDiagonal"), texelDiagonalSize);
 
     glUniform3fv(glGetUniformLocation(obstacleVelocityShader.Program, "firstLayerPoint"), 1, glm::value_ptr(firstLayerPoint));
     glUniform3fv(glGetUniformLocation(obstacleVelocityShader.Program, "layersDir"), 1, glm::value_ptr(layersDir));
@@ -962,5 +964,5 @@ void DynamicObstacle(Shader &stencilObstacleShader, Shader &obstacleVelocityShad
     glm::vec3 firstLayerPoint = viewEye + projectionDir * near_plane;
     glm::vec3 lastLayerPoint = viewEye + projectionDir * (2 * scale + 1);
 
-    DynamicObstacleVelocity(obstacleVelocityShader, obstacle_velocity, temp_slab, obstacle, view, projection, firstLayerPoint, lastLayerPoint - firstLayerPoint, deltaTime);
+    DynamicObstacleVelocity(obstacleVelocityShader, obstacle_velocity, temp_slab, obstacle, view, projection, firstLayerPoint, lastLayerPoint - firstLayerPoint, deltaTime, 1.41421f * (2*scale / GRID_WIDTH));
 }

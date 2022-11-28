@@ -21,6 +21,8 @@ out vec3 planeNormal;
 
 out vec3 vertVelocity;
 
+out vec3 mPos;
+
 void main()
 {
     vInstance = gl_InstanceID;
@@ -29,9 +31,12 @@ void main()
     planeNormal = normalize(layersDir);
 
     vec3 oldPos = (projection * view * prevModel * vec4(position, 1.0)).xyz;
-    vec3 newPos = (projection * view * model * vec4(position, 1.0)).xyz;
 
-    vertVelocity = (newPos - oldPos) / deltaTime;
+    vec4 newPos = model * vec4(position, 1.0);
+    mPos = newPos.xyz;
+    newPos = projection * view * newPos;
 
-    gl_Position = projection * view * model * vec4(position, 1.0);
+    vertVelocity = (newPos.xyz - oldPos) / deltaTime;
+
+    gl_Position = newPos;
 }
