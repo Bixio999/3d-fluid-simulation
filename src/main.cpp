@@ -437,7 +437,7 @@ int main()
             cubeModelMatrix = glm::scale(cubeModelMatrix, glm::vec3(fluidScale));
 
             // we draw the dynamic obstacles in the obstacle buffer
-            DynamicObstacle(stencilObstacleShader, obstacleVelocityShader, obstacle_slab, obstacle_velocity_slab, temp_velocity_slab, sphere, fluidTranslation, fluidScale, simulationFramerate);
+            DynamicObstacle(stencilObstacleShader, obstacleVelocityShader, obstacle_slab, obstacle_velocity_slab, temp_velocity_slab, bunny, fluidTranslation, fluidScale, simulationFramerate);
 
             /////////////////// STEP 2 - UPDATE SIMULATION  //////////////////////////////////////////////////////////////////////////
             // we bind the VAO for the quad and set up rendering
@@ -711,8 +711,8 @@ void RenderObjects(Shader &shader, Model &planeModel, ObstacleObject &sphere, Ob
     sphere.prevModelMatrix = sphere.modelMatrix;
     sphere.modelMatrix = glm::mat4(1.0f);
     sphereNormalMatrix = glm::mat3(1.0f);
-    // sphere.modelMatrix = glm::translate(sphere.modelMatrix, glm::vec3(-3.0f, 1.0f, 0.0f));
-    sphere.modelMatrix = glm::translate(sphere.modelMatrix, glm::vec3(0.0f, 1.0f, 0.0f));
+    sphere.modelMatrix = glm::translate(sphere.modelMatrix, glm::vec3(-3.0f, 1.0f, 0.0f));
+    // sphere.modelMatrix = glm::translate(sphere.modelMatrix, glm::vec3(0.0f, 1.0f, 0.0f));
     sphere.modelMatrix = glm::rotate(sphere.modelMatrix, glm::radians(orientationY), glm::vec3(0.0f, 1.0f, 0.0f));
     sphere.modelMatrix = glm::scale(sphere.modelMatrix, glm::vec3(0.8f, 0.8f, 0.8f));
     sphereNormalMatrix = glm::inverseTranspose(glm::mat3(view*sphere.modelMatrix));
@@ -728,7 +728,8 @@ void RenderObjects(Shader &shader, Model &planeModel, ObstacleObject &sphere, Ob
     bunny.prevModelMatrix = bunny.modelMatrix;
     bunny.modelMatrix = glm::mat4(1.0f);
     bunnyNormalMatrix = glm::mat3(1.0f);
-    bunny.modelMatrix = glm::translate(bunny.modelMatrix, glm::vec3(3.0f, 1.0f, 0.0f));
+    // bunny.modelMatrix = glm::translate(bunny.modelMatrix, glm::vec3(3.0f, 1.0f, 0.0f));
+    bunny.modelMatrix = glm::translate(bunny.modelMatrix, glm::vec3(0.0f, 1.0f, 0.0f));
     bunny.modelMatrix = glm::rotate(bunny.modelMatrix, glm::radians(orientationY), glm::vec3(0.0f, 1.0f, 0.0f));
     bunny.modelMatrix = glm::scale(bunny.modelMatrix, glm::vec3(0.3f, 0.3f, 0.3f));
     bunnyNormalMatrix = glm::inverseTranspose(glm::mat3(view*bunny.modelMatrix));

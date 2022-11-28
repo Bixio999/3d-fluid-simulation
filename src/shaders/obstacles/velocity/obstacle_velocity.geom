@@ -84,8 +84,8 @@ void EmitTriangle(Point a, Point b, Point c)
 void EmitSegment(Point a1, Point b1)
 {
     // find the triangle face normal
-    vec3 v1 = mPos[1] - mPos[0];
-    vec3 v2 = mPos[2] - mPos[0];
+    vec3 v1 = normalize(mPos[1] - mPos[0]);
+    vec3 v2 = normalize(mPos[2] - mPos[0]);
 
     vec3 faceNormal = normalize(cross(v1, v2));
 
