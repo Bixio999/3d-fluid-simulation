@@ -114,7 +114,7 @@ void SetupShader(int shader_program);
 void PrintCurrentShader(int subroutine);
 
 // in this application, we have isolated the models rendering using a function, which will be called in each rendering step
-void RenderObjects(Shader &shader, Model &planeModel, Model &sphereModel, Model &bunnyModel, Model &cubeModel, GLint render_pass, GLuint depthMap);
+void RenderObjects(Shader &shader, Model &planeModel, ObstacleObject &sphere, ObstacleObject &bunny, Model &cubeModel, GLint render_pass, GLuint depthMap);
 
 // load image from disk and create an OpenGL texture
 GLint LoadTexture(const char* path);
@@ -167,11 +167,11 @@ GLboolean wireframe = GL_FALSE;
 glm::mat4 view = glm::mat4(1.0f);
 
 // Model and Normal transformation matrices for the objects in the scene: we set to identity
-glm::mat4 sphereModelMatrix = glm::mat4(1.0f);
+// glm::mat4 sphereModelMatrix = glm::mat4(1.0f);
 glm::mat3 sphereNormalMatrix = glm::mat3(1.0f);
 glm::mat4 cubeModelMatrix = glm::mat4(1.0f);
 glm::mat3 cubeNormalMatrix = glm::mat3(1.0f);
-glm::mat4 bunnyModelMatrix = glm::mat4(1.0f);
+// glm::mat4 bunnyModelMatrix = glm::mat4(1.0f);
 glm::mat3 bunnyNormalMatrix = glm::mat3(1.0f);
 glm::mat4 planeModelMatrix = glm::mat4(1.0f);
 glm::mat3 planeNormalMatrix = glm::mat3(1.0f);
@@ -270,7 +270,9 @@ int main()
     Shader borderObstacleShaderLayered = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/obstacles/border.geom","src/shaders/obstacles/border.frag");
     Shader borderObstacleShader = Shader("src/shaders/simulation/load_vertices.vert","src/shaders/obstacles/border.frag");
 
-    Shader stencilObstacleShader = Shader("src/shaders/obstacles/obstacle_position.vert", "src/shaders/simulation/set_layer.geom" , "src/shaders/rendering/fill.frag");
+    Shader stencilObstacleShader = Shader("src/shaders/obstacles/position/obstacle_position.vert", "src/shaders/simulation/set_layer.geom" , "src/shaders/rendering/fill.frag");
+
+    Shader obstacleVelocityShader = Shader("src/shaders/obstacles/velocity/obstacle_velocity.vert", "src/shaders/obstacles/velocity/obstacle_velocity.geom", "src/shaders/obstacles/velocity/obstacle_velocity.frag");
 
     Shader raydataBackShader = Shader("src/shaders/rendering/raydata/raydata.vert", "src/shaders/rendering/raydata/raydata_back.frag");
     Shader raydataFrontShader = Shader("src/shaders/rendering/raydata/raydata.vert", "src/shaders/rendering/raydata/raydata_front.frag");
@@ -293,10 +295,15 @@ int main()
 
     // we load the model(s) (code of Model class is in include/utils/model.h)
     // Model cubeModel("models/cube.obj");
-    Model sphereModel("models/sphere.obj");
-    Model bunnyModel("models/bunny_lp.obj");
+    // Model sphereModel("models/sphere.obj");
+    // Model bunnyModel("models/bunny_lp.obj");
     Model planeModel("models/plane.obj");
     Model cubeModel("models/cube.obj");
+
+    /////////////////// CREATION OF OBSTACLES /////////////////////////////////////////////////////////////
+
+    ObstacleObject bunny = {glm::mat4(1.0f), glm::mat4(1.0f), Model("models/bunny_lp.obj")};
+    ObstacleObject sphere = {glm::mat4(1.0f), glm::mat4(1.0f), Model("models/sphere.obj")};
 
     /////////////////// CREATION OF BUFFERS FOR THE SIMULATION GRID /////////////////////////////////////////
     // Grid dimensions
@@ -338,7 +345,7 @@ int main()
     
     ///////////////////////////////// CREATION OF BUFFERS AND DATA FOR OBSTACLES /////////////////////////////////////////
 
-    Obstacle obstacle_slab = CreateObstacleBuffer(GRID_WIDTH, GRID_HEIGHT, GRID_DEPTH);
+    ObstacleSlab obstacle_slab = CreateObstacleBuffer(GRID_WIDTH, GRID_HEIGHT, GRID_DEPTH);
     std::cout << "Created obstacle grid = {" << obstacle_slab.fbo << " , " << obstacle_slab.tex << " , " << obstacle_slab.depthStencil << " , " << obstacle_slab.firstLayerFBO << " , " << obstacle_slab.lastLayerFBO << "}" << std::endl;
 
     Slab obstacle_velocity_slab = CreateSlab(GRID_WIDTH, GRID_HEIGHT, GRID_DEPTH, 3);
@@ -411,27 +418,28 @@ int main()
         // we apply FPS camera movements
         apply_camera_movements();
 
-        /////////////////// STEP 1 - UPDATE OBSTACLES  //////////////////////////////////////////////////////////////////////////
-
-        // we draw fluid box borders in the obstacle buffer
-        BorderObstacle(borderObstacleShader, borderObstacleShaderLayered, obstacle_slab);
-
-        // we define the model matrix of the fluid box
-        cubeModelMatrix = glm::mat4(1.0f);
-        cubeNormalMatrix = glm::mat3(1.0f);
-
-        cubeModelMatrix = glm::translate(cubeModelMatrix, fluidTranslation);
-        cubeModelMatrix = glm::scale(cubeModelMatrix, glm::vec3(fluidScale));
-
-        // we draw the dynamic obstacles in the obstacle buffer
-        DynamicObstacle(stencilObstacleShader, obstacle_slab, sphereModel, sphereModelMatrix, fluidTranslation, fluidScale);
-
-
-        /////////////////// STEP 2 - UPDATE SIMULATION  //////////////////////////////////////////////////////////////////////////
         // we update the simulation based on the defined timestep
-
         if (currentFrame - lastSimulationUpdate >= simulationFramerate)
         {
+            /////////////////// STEP 1 - UPDATE OBSTACLES  //////////////////////////////////////////////////////////////////////////
+
+            // we clear the obstacle buffers
+            ClearObstacleBuffers(obstacle_slab, obstacle_velocity_slab);
+
+            // we draw fluid box borders in the obstacle position buffer
+            BorderObstacle(borderObstacleShader, borderObstacleShaderLayered, obstacle_slab);
+
+            // we define the model matrix of the fluid box
+            cubeModelMatrix = glm::mat4(1.0f);
+            cubeNormalMatrix = glm::mat3(1.0f);
+
+            cubeModelMatrix = glm::translate(cubeModelMatrix, fluidTranslation);
+            cubeModelMatrix = glm::scale(cubeModelMatrix, glm::vec3(fluidScale));
+
+            // we draw the dynamic obstacles in the obstacle buffer
+            DynamicObstacle(stencilObstacleShader, obstacleVelocityShader, obstacle_slab, obstacle_velocity_slab, temp_velocity_slab, sphere, fluidTranslation, fluidScale, simulationFramerate);
+
+            /////////////////// STEP 2 - UPDATE SIMULATION  //////////////////////////////////////////////////////////////////////////
             // we bind the VAO for the quad and set up rendering
             BeginSimulation();
 
@@ -516,7 +524,7 @@ int main()
         glClear(GL_DEPTH_BUFFER_BIT);
 
         // we render the scene, using the shadow shader
-        RenderObjects(shadow_shader, planeModel, sphereModel, bunnyModel, cubeModel, SHADOWMAP, depthMap);
+        RenderObjects(shadow_shader, planeModel, sphere, bunny, cubeModel, SHADOWMAP, depthMap);
 
         // /////////////////// STEP 2 - SCENE RENDERING FROM CAMERA ////////////////////////////////////////////////
 
@@ -572,7 +580,7 @@ int main()
         glUniform1f(f0Location, F0);
 
         // we render the scene
-        RenderObjects(illumination_shader, planeModel, sphereModel, bunnyModel, cubeModel, RENDER, depthMap);
+        RenderObjects(illumination_shader, planeModel, sphere, bunny, cubeModel, RENDER, depthMap);
 
         // setup fluid volume matrices
         // cubeModelMatrix = glm::mat4(1.0f);
@@ -650,7 +658,7 @@ int main()
 
 //////////////////////////////////////////
 // we render the objects. We pass also the current rendering step, and the depth map generated in the first step, which is used by the shaders of the second step
-void RenderObjects(Shader &shader, Model &planeModel, Model &sphereModel, Model &bunnyModel, Model &cubeModel, GLint render_pass, GLuint depthMap)
+void RenderObjects(Shader &shader, Model &planeModel, ObstacleObject &sphere, ObstacleObject &bunny, Model &cubeModel, GLint render_pass, GLuint depthMap)
 {
     // For the second rendering step -> we pass the shadow map to the shaders
     if (render_pass==RENDER)
@@ -700,33 +708,35 @@ void RenderObjects(Shader &shader, Model &planeModel, Model &sphereModel, Model 
     glUniform1f(repeatLocation, repeat);
 
     // we reset to identity at each frame
-    sphereModelMatrix = glm::mat4(1.0f);
+    sphere.prevModelMatrix = sphere.modelMatrix;
+    sphere.modelMatrix = glm::mat4(1.0f);
     sphereNormalMatrix = glm::mat3(1.0f);
-    // sphereModelMatrix = glm::translate(sphereModelMatrix, glm::vec3(-3.0f, 1.0f, 0.0f));
-    sphereModelMatrix = glm::translate(sphereModelMatrix, glm::vec3(0.0f, 1.0f, 0.0f));
-    sphereModelMatrix = glm::rotate(sphereModelMatrix, glm::radians(orientationY), glm::vec3(0.0f, 1.0f, 0.0f));
-    sphereModelMatrix = glm::scale(sphereModelMatrix, glm::vec3(0.8f, 0.8f, 0.8f));
-    sphereNormalMatrix = glm::inverseTranspose(glm::mat3(view*sphereModelMatrix));
-    glUniformMatrix4fv(glGetUniformLocation(shader.Program, "modelMatrix"), 1, GL_FALSE, glm::value_ptr(sphereModelMatrix));
+    // sphere.modelMatrix = glm::translate(sphere.modelMatrix, glm::vec3(-3.0f, 1.0f, 0.0f));
+    sphere.modelMatrix = glm::translate(sphere.modelMatrix, glm::vec3(0.0f, 1.0f, 0.0f));
+    sphere.modelMatrix = glm::rotate(sphere.modelMatrix, glm::radians(orientationY), glm::vec3(0.0f, 1.0f, 0.0f));
+    sphere.modelMatrix = glm::scale(sphere.modelMatrix, glm::vec3(0.8f, 0.8f, 0.8f));
+    sphereNormalMatrix = glm::inverseTranspose(glm::mat3(view*sphere.modelMatrix));
+    glUniformMatrix4fv(glGetUniformLocation(shader.Program, "modelMatrix"), 1, GL_FALSE, glm::value_ptr(sphere.modelMatrix));
     glUniformMatrix3fv(glGetUniformLocation(shader.Program, "normalMatrix"), 1, GL_FALSE, glm::value_ptr(sphereNormalMatrix));
 
     // we render the sphere
-    sphereModel.Draw();
+    sphere.objectModel.Draw();
 
 
     // BUNNY
     // we reset to identity at each frame
-    bunnyModelMatrix = glm::mat4(1.0f);
+    bunny.prevModelMatrix = bunny.modelMatrix;
+    bunny.modelMatrix = glm::mat4(1.0f);
     bunnyNormalMatrix = glm::mat3(1.0f);
-    bunnyModelMatrix = glm::translate(bunnyModelMatrix, glm::vec3(3.0f, 1.0f, 0.0f));
-    bunnyModelMatrix = glm::rotate(bunnyModelMatrix, glm::radians(orientationY), glm::vec3(0.0f, 1.0f, 0.0f));
-    bunnyModelMatrix = glm::scale(bunnyModelMatrix, glm::vec3(0.3f, 0.3f, 0.3f));
-    bunnyNormalMatrix = glm::inverseTranspose(glm::mat3(view*bunnyModelMatrix));
-    glUniformMatrix4fv(glGetUniformLocation(shader.Program, "modelMatrix"), 1, GL_FALSE, glm::value_ptr(bunnyModelMatrix));
+    bunny.modelMatrix = glm::translate(bunny.modelMatrix, glm::vec3(3.0f, 1.0f, 0.0f));
+    bunny.modelMatrix = glm::rotate(bunny.modelMatrix, glm::radians(orientationY), glm::vec3(0.0f, 1.0f, 0.0f));
+    bunny.modelMatrix = glm::scale(bunny.modelMatrix, glm::vec3(0.3f, 0.3f, 0.3f));
+    bunnyNormalMatrix = glm::inverseTranspose(glm::mat3(view*bunny.modelMatrix));
+    glUniformMatrix4fv(glGetUniformLocation(shader.Program, "modelMatrix"), 1, GL_FALSE, glm::value_ptr(bunny.modelMatrix));
     glUniformMatrix3fv(glGetUniformLocation(shader.Program, "normalMatrix"), 1, GL_FALSE, glm::value_ptr(bunnyNormalMatrix));
 
     // we render the bunny
-    bunnyModel.Draw();
+    bunny.objectModel.Draw();
 
     // // CUBE
     // // we reset to identity at each frame

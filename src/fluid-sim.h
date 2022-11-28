@@ -26,7 +26,7 @@ struct Scene
     GLuint depthTex;
 };
 
-struct Obstacle
+struct ObstacleSlab
 {
     GLuint fbo;
     GLuint tex;
@@ -34,6 +34,13 @@ struct Obstacle
 
     GLuint firstLayerFBO;
     GLuint lastLayerFBO;
+};
+
+struct ObstacleObject
+{
+    glm::mat4 modelMatrix;
+    glm::mat4 prevModelMatrix;
+    Model objectModel;
 };
 
 // create a simulation grid slab
@@ -63,19 +70,19 @@ void EndSimulation();
 ///////////////////////////////////////////
 
 // execute advection with semi-lagrangian scheme
-void Advect(Shader* advectionShader, Slab *velocity, Obstacle *obstacle, Slab *source, Slab *dest, float dissipation, float timeStep);
+void Advect(Shader* advectionShader, Slab *velocity, ObstacleSlab *obstacle, Slab *source, Slab *dest, float dissipation, float timeStep);
 
 // execute advection with mac-cormack scheme
-void AdvectMacCormack(Shader* advectionShader, Shader* macCormackShader, Slab *velocity, Slab *phi1_hat, Slab *phi2_hat, Obstacle *obstacle, Slab* source, Slab* dest, float dissipation, float timeStep);
+void AdvectMacCormack(Shader* advectionShader, Shader* macCormackShader, Slab *velocity, Slab *phi1_hat, Slab *phi2_hat, ObstacleSlab *obstacle, Slab* source, Slab* dest, float dissipation, float timeStep);
 
 // execute buoyancy
 void Buoyancy(Shader* buoyancyShader, Slab *velocity, Slab *temperature, Slab *density, Slab *dest, float ambientTemperature, float timeStep, float sigma, float kappa);
 
 // execute divergence
-void Divergence(Shader* divergenceShader, Slab *velocity, Slab *divergence, Obstacle *obstacle, Slab *dest);
+void Divergence(Shader* divergenceShader, Slab *velocity, Slab *divergence, ObstacleSlab *obstacle, Slab *dest);
 
 // execute jacobi
-void Jacobi(Shader* jacobiShader, Slab *pressure, Slab *divergence, Obstacle *obstacle, Slab *dest, GLuint iterations);
+void Jacobi(Shader* jacobiShader, Slab *pressure, Slab *divergence, ObstacleSlab *obstacle, Slab *dest, GLuint iterations);
 
 // apply external forces
 void ApplyExternalForces(Shader* externalForcesShader, Slab *velocity, Slab *dest, float timeStep, glm::vec3 force, glm::vec3 position, float radius);
@@ -87,7 +94,7 @@ void AddDensity(Shader* dyeShader, Slab *density, Slab *dest, glm::vec3 position
 void AddTemperature(Shader *dyeShader, Slab *temperature, Slab *dest, glm::vec3 position, float radius, float appliedTemperature);
 
 // apply pressure
-void ApplyPressure(Shader* pressureShader, Slab *velocity, Slab *pressure, Obstacle *obstacle, Slab *dest);
+void ApplyPressure(Shader* pressureShader, Slab *velocity, Slab *pressure, ObstacleSlab *obstacle, Slab *dest);
 
 /////////////////////////////////////////////
 
@@ -102,11 +109,13 @@ void BlendRendering(Shader &blendingShader, Scene &scene, Scene &fluid, Slab &ra
 /////////////////////////////////////////////
 
 // create the volume border obstacle grid
-void BorderObstacle(Shader &borderObstacleShader, Shader &borderObstacleShaderLayered, Obstacle &dest);
+void BorderObstacle(Shader &borderObstacleShader, Shader &borderObstacleShaderLayered, ObstacleSlab &dest);
 
-Obstacle CreateObstacleBuffer(GLuint width, GLuint height, GLuint depth);
+ObstacleSlab CreateObstacleBuffer(GLuint width, GLuint height, GLuint depth);
 
-void DynamicObstacle(Shader &stencilObstacleShader, Obstacle &dest, Model &obstacleModel, glm::mat4 &model, glm::vec3 translation, GLfloat scale);
+void ClearObstacleBuffers(ObstacleSlab &obstaclePosition, Slab &obstacleVelocity);
+
+void DynamicObstacle(Shader &stencilObstacleShader, Shader &obstacleVelocityShader, ObstacleSlab &obstacle_position, Slab &obstacle_velocity, Slab &temp_slab, ObstacleObject &obstacle, glm::vec3 translation, GLfloat scale, GLfloat deltaTime);
 
 Slab CreateStencilBuffer(GLuint width, GLuint height);
 
