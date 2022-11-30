@@ -442,7 +442,7 @@ void AddTemperature(Shader *dyeShader, Slab *temperature, Slab *dest, glm::vec3 
 }
 
 // execute divergence
-void Divergence(Shader* divergenceShader, Slab *velocity, Slab *divergence, ObstacleSlab *obstacle, Slab *dest)
+void Divergence(Shader* divergenceShader, Slab *velocity, Slab *divergence, ObstacleSlab *obstacle, Slab *obstacleVelocity, Slab *dest)
 {
     divergenceShader->Use();
 
@@ -453,6 +453,9 @@ void Divergence(Shader* divergenceShader, Slab *velocity, Slab *divergence, Obst
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_3D, obstacle->tex);
     glUniform1i(glGetUniformLocation(divergenceShader->Program, "ObstacleTexture"), 1);
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_3D, obstacleVelocity->tex);
+    glUniform1i(glGetUniformLocation(divergenceShader->Program, "ObstacleVelocityTexture"), 2);
 
     glUniform3fv(glGetUniformLocation(divergenceShader->Program, "InverseSize"), 1, glm::value_ptr(InverseSize));
 
@@ -460,6 +463,7 @@ void Divergence(Shader* divergenceShader, Slab *velocity, Slab *divergence, Obst
 
     glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_3D, 0);
     glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_3D, 0);
+    glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_3D, 0);
 
     SwapSlabs(divergence, dest);
 }
@@ -500,7 +504,7 @@ void Jacobi(Shader* jacobiShader, Slab *pressure, Slab *divergence, ObstacleSlab
 
 
 // apply pressure
-void ApplyPressure(Shader* pressureShader, Slab *velocity, Slab *pressure, ObstacleSlab *obstacle, Slab *dest)
+void ApplyPressure(Shader* pressureShader, Slab *velocity, Slab *pressure, ObstacleSlab *obstacle, Slab *obstacleVelocity, Slab *dest)
 {
     pressureShader->Use();
 
@@ -514,6 +518,9 @@ void ApplyPressure(Shader* pressureShader, Slab *velocity, Slab *pressure, Obsta
     glActiveTexture(GL_TEXTURE2);
     glBindTexture(GL_TEXTURE_3D, obstacle->tex);
     glUniform1i(glGetUniformLocation(pressureShader->Program, "ObstacleTexture"), 2);
+    glActiveTexture(GL_TEXTURE3);
+    glBindTexture(GL_TEXTURE_3D, obstacleVelocity->tex);
+    glUniform1i(glGetUniformLocation(pressureShader->Program, "ObstacleVelocityTexture"), 3);
 
     glUniform3fv(glGetUniformLocation(pressureShader->Program, "InverseSize"), 1, glm::value_ptr(InverseSize));
 
@@ -522,6 +529,7 @@ void ApplyPressure(Shader* pressureShader, Slab *velocity, Slab *pressure, Obsta
     glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_3D, 0);
     glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_3D, 0);
     glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_3D, 0);
+    glActiveTexture(GL_TEXTURE3); glBindTexture(GL_TEXTURE_3D, 0);
 
     SwapSlabs(velocity, dest);
 }

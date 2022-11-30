@@ -156,7 +156,7 @@ GLfloat fluidScale = 2.0f;
 // rotation angle on Y axis
 GLfloat orientationY = 0.0f;
 // rotation speed on Y axis
-GLfloat spin_speed = 30.0f;
+GLfloat spin_speed = 100.0f;
 // boolean to start/stop animated rotation on Y angle
 GLboolean spinning = GL_TRUE;
 
@@ -485,13 +485,13 @@ int main()
             // ApplyExternalForces(&externalForcesShader, &velocity_slab, &temp_velocity_slab, timeStep, placeholder_force, force_center, force_radius);
 
             // we update the divergence texture
-            Divergence(&divergenceShader, &velocity_slab, &divergence_slab, &obstacle_slab, &temp_pressure_divergence_slab);
+            Divergence(&divergenceShader, &velocity_slab, &divergence_slab, &obstacle_slab, &obstacle_velocity_slab, &temp_pressure_divergence_slab);
 
             // we update the pressure texture
             Jacobi(&jacobiShader, &pressure_slab, &divergence_slab, &obstacle_slab, &temp_pressure_divergence_slab, pressureIterations);
 
             // we apply the pressure projection
-            ApplyPressure(&pressureShader, &velocity_slab, &pressure_slab, &obstacle_slab, &temp_velocity_slab);
+            ApplyPressure(&pressureShader, &velocity_slab, &pressure_slab, &obstacle_slab, &obstacle_velocity_slab, &temp_velocity_slab);
 
             // reset the state
             EndSimulation();
@@ -729,7 +729,7 @@ void RenderObjects(Shader &shader, Model &planeModel, ObstacleObject &sphere, Ob
     bunny.modelMatrix = glm::mat4(1.0f);
     bunnyNormalMatrix = glm::mat3(1.0f);
     // bunny.modelMatrix = glm::translate(bunny.modelMatrix, glm::vec3(3.0f, 1.0f, 0.0f));
-    bunny.modelMatrix = glm::translate(bunny.modelMatrix, glm::vec3(0.0f, 1.0f, 0.0f));
+    bunny.modelMatrix = glm::translate(bunny.modelMatrix, glm::vec3(0.0f, 1.0f, 1.0f));
     bunny.modelMatrix = glm::rotate(bunny.modelMatrix, glm::radians(orientationY), glm::vec3(0.0f, 1.0f, 0.0f));
     bunny.modelMatrix = glm::scale(bunny.modelMatrix, glm::vec3(0.3f, 0.3f, 0.3f));
     bunnyNormalMatrix = glm::inverseTranspose(glm::mat3(view*bunny.modelMatrix));

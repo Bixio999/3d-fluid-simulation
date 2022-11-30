@@ -36,7 +36,7 @@ void main()
     mPos = newPos.xyz;
     newPos = projection * view * newPos;
 
-    vertVelocity = (newPos.xyz - oldPos) / deltaTime;
+    vertVelocity = 5 * (newPos.xyz - oldPos) / deltaTime;
 
     gl_Position = newPos;
 }

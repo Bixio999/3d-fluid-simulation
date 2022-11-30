@@ -4,6 +4,7 @@ out float FragColor;
 
 uniform sampler3D VelocityTexture;
 uniform sampler3D ObstacleTexture;
+uniform sampler3D ObstacleVelocityTexture;
 uniform vec3 InverseSize;
 
 in float layer;
@@ -25,12 +26,26 @@ void main() {
     vec3 obsU = texture(ObstacleTexture, InverseSize * (fragCoord - vec3(0, 0, 1))).xyz;
     vec3 obsD = texture(ObstacleTexture, InverseSize * (fragCoord + vec3(0, 0, 1))).xyz;
 
+    vec3 obsVelL = texture(ObstacleVelocityTexture, InverseSize * (fragCoord - vec3(1, 0, 0))).xyz;
+    vec3 obsVelR = texture(ObstacleVelocityTexture, InverseSize * (fragCoord + vec3(1, 0, 0))).xyz;
+    vec3 obsVelB = texture(ObstacleVelocityTexture, InverseSize * (fragCoord - vec3(0, 1, 0))).xyz;
+    vec3 obsVelT = texture(ObstacleVelocityTexture, InverseSize * (fragCoord + vec3(0, 1, 0))).xyz;
+    vec3 obsVelU = texture(ObstacleVelocityTexture, InverseSize * (fragCoord - vec3(0, 0, 1))).xyz;
+    vec3 obsVelD = texture(ObstacleVelocityTexture, InverseSize * (fragCoord + vec3(0, 0, 1))).xyz;
+
     // if (obsL.x > 0.0) vL = obsL.yzx;
     // if (obsR.x > 0.0) vR = obsR.yzx;
     // if (obsB.x > 0.0) vB = obsB.yzx;
     // if (obsT.x > 0.0) vT = obsT.yzx;
     // if (obsU.x > 0.0) vU = obsU.yzx;
     // if (obsD.x > 0.0) vD = obsD.yzx;
+
+    if (obsL.x > 0.0) vL = obsVelL.yzx;
+    if (obsR.x > 0.0) vR = obsVelR.yzx;
+    if (obsB.x > 0.0) vB = obsVelB.yzx;
+    if (obsT.x > 0.0) vT = obsVelT.yzx;
+    if (obsU.x > 0.0) vU = obsVelU.yzx;
+    if (obsD.x > 0.0) vD = obsVelD.yzx;
     
     if (obsL.x > 0.0) vL = vec3(0.0);
     if (obsR.x > 0.0) vR = vec3(0.0);

@@ -5,6 +5,7 @@ out vec3 newVelocity;
 uniform sampler3D VelocityTexture;
 uniform sampler3D PressureTexture;
 uniform sampler3D ObstacleTexture;
+uniform sampler3D ObstacleVelocityTexture;
 uniform vec3 InverseSize;
 
 in float layer;
@@ -35,43 +36,50 @@ void main()
         vec3 obsBottom = texture(ObstacleTexture, (fragCoord + vec3(0, 0, -1)) * InverseSize).rgb;
         vec3 obsTop = texture(ObstacleTexture, (fragCoord + vec3(0, 0, 1)) * InverseSize).rgb;
 
+        vec3 obsVelocityLeft = texture(ObstacleVelocityTexture, (fragCoord + vec3(-1, 0, 0)) * InverseSize).rgb;
+        vec3 obsVelocityRight = texture(ObstacleVelocityTexture, (fragCoord + vec3(1, 0, 0)) * InverseSize).rgb;
+        vec3 obsVelocityBack = texture(ObstacleVelocityTexture, (fragCoord + vec3(0, -1, 0)) * InverseSize).rgb;
+        vec3 obsVelocityFront = texture(ObstacleVelocityTexture, (fragCoord + vec3(0, 1, 0)) * InverseSize).rgb;
+        vec3 obsVelocityBottom = texture(ObstacleVelocityTexture, (fragCoord + vec3(0, 0, -1)) * InverseSize).rgb;
+        vec3 obsVelocityTop = texture(ObstacleVelocityTexture, (fragCoord + vec3(0, 0, 1)) * InverseSize).rgb;
+
         vec3 obsVelocity = vec3(0.0);
         vec3 obsMask = vec3(1.0);
 
         if (obsLeft.r > 0.0)
         {
             pLeft = pCenter;
-            obsVelocity.x = obsLeft.x;
+            obsVelocity.x = obsVelocityLeft.x;
             obsMask.x = 0.0;
         }
         if (obsRight.r > 0.0)
         {
             pRight = pCenter;
-            obsVelocity.x = obsRight.x;
+            obsVelocity.x = obsVelocityRight.x;
             obsMask.x = 0.0;
         }
         if (obsBack.r > 0.0)
         {
             pBack = pCenter;
-            obsVelocity.y = obsBack.y;
+            obsVelocity.y = obsVelocityBack.y;
             obsMask.y = 0.0;
         }
         if (obsFront.r > 0.0)
         {
             pFront = pCenter;
-            obsVelocity.y = obsFront.y;
+            obsVelocity.y = obsVelocityFront.y;
             obsMask.y = 0.0;
         }
         if (obsBottom.r > 0.0)
         {
             pBottom = pCenter;
-            obsVelocity.z = obsBottom.z;
+            obsVelocity.z = obsVelocityBottom.z;
             obsMask.z = 0.0;
         }
         if (obsTop.r > 0.0)
         {
             pTop = pCenter;
-            obsVelocity.z = obsTop.z;
+            obsVelocity.z = obsVelocityTop.z;
             obsMask.z = 0.0;
         }
 
