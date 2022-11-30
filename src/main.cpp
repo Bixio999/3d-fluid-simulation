@@ -146,7 +146,7 @@ GLfloat ambientWeight = 0.15f;
 
 // Dissipation factors
 GLfloat velocityDissipation = 0.8f; // 0.8f
-GLfloat densityDissipation = 0.99f; // 0.9f
+GLfloat densityDissipation = 0.999f; // 0.9f
 GLfloat temperatureDissipation = 0.9f; // 0.9f
 
 // Fluid Volume parameters
@@ -156,7 +156,7 @@ GLfloat fluidScale = 2.0f;
 // rotation angle on Y axis
 GLfloat orientationY = 0.0f;
 // rotation speed on Y axis
-GLfloat spin_speed = 100.0f;
+GLfloat spin_speed = 60.0f;
 // boolean to start/stop animated rotation on Y angle
 GLboolean spinning = GL_TRUE;
 
@@ -462,9 +462,9 @@ int main()
             Buoyancy(&buoyancyShader, &velocity_slab, &temperature_slab, &density_slab, &temp_velocity_slab, ambientTemperature, timeStep, ambientBuoyancy, ambientWeight);
 
             // we apply the external forces and splat density and temperature
-            glm::vec3 placeholder_force = glm::vec3(0, -1, 0) * 1.0f;
-            glm::vec3 force_center = glm::vec3(GRID_WIDTH / 2.0f, GRID_HEIGHT * 0.8f, GRID_DEPTH / 2.0f);
-            float force_radius = 5.0f;
+            glm::vec3 placeholder_force = glm::vec3(0, -1, 0) * 2.0f;
+            glm::vec3 force_center = glm::vec3(GRID_WIDTH / 2.0f, GRID_HEIGHT * 0.7f, GRID_DEPTH / 2.0f);
+            float force_radius = 2.5f;
 
             // we increase density and temperature based on applied force
             float dyeColor = 1.2f;

@@ -8,7 +8,7 @@ in int vInstance[3];
 in vec3 planePoint[3];
 in vec3 planeNormal[3];
 in vec3 vertVelocity[3];
-in vec3 mPos[3];
+in vec4 mPos[3];
 
 uniform float grid_depth;
 uniform float texelDiagonal;
@@ -22,6 +22,8 @@ out float layer;
 out int numIntersections;
 out float t;
 out int result;
+out vec3 worldPos;
+////////////
 
 struct Point {
     vec3 position;
@@ -38,7 +40,7 @@ vec4 World2ClipCoords(vec3 pos)
 
 int SegmentPlaneIntersection(vec3 segmentPoint, vec3 segmentDir, vec3 planePoint, vec3 planeNormal, out float t)
 {
-    float denom = dot(planeNormal, segmentDir);
+    float denom = dot(segmentDir, planeNormal);
 
     vec3 v = planePoint - segmentPoint;
     float num = dot(v, planeNormal);
@@ -64,18 +66,21 @@ void EmitTriangle(Point a, Point b, Point c)
     velocity = a.velocity;
     t = a.t;
     result = a.intersectionResult;
+    worldPos = a.position;
     EmitVertex();
 
     gl_Position = World2ClipCoords(b.position);
     velocity = b.velocity;
     t = b.t;
     result = b.intersectionResult;
+    worldPos = b.position;
     EmitVertex();
 
     gl_Position = World2ClipCoords(c.position);
     velocity = c.velocity;
     t = c.t;
     result = c.intersectionResult;
+    worldPos = c.position;
     EmitVertex();
 
     EndPrimitive();
@@ -84,8 +89,8 @@ void EmitTriangle(Point a, Point b, Point c)
 void EmitSegment(Point a1, Point b1)
 {
     // find the triangle face normal
-    vec3 v1 = normalize(mPos[1] - mPos[0]);
-    vec3 v2 = normalize(mPos[2] - mPos[0]);
+    vec3 v1 = normalize(mPos[1].xyz - mPos[0].xyz);
+    vec3 v2 = normalize(mPos[2].xyz - mPos[0].xyz);
 
     vec3 faceNormal = normalize(cross(v1, v2));
 
@@ -116,8 +121,8 @@ void main()
 
     for (int i = 0; i < 3 && numIntersections < 3; i++)
     {
-        vec3 a = mPos[i];
-        vec3 b = mPos[(i + 1) % 3];
+        vec3 a = mPos[i].xyz;
+        vec3 b = mPos[(i + 1) % 3].xyz;
 
         vec3 vel_a = vertVelocity[i];
         vec3 vel_b = vertVelocity[(i + 1) % 3];
@@ -191,6 +196,7 @@ void main()
             gl_Position = World2ClipCoords(intersections[0].position);
             velocity = intersections[0].velocity;
             t = intersections[0].t;
+            worldPos = intersections[0].position;
             result = intersections[0].intersectionResult;
             EmitVertex();
             // EmitVertex();

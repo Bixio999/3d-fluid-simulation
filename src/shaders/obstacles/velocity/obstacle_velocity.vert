@@ -21,7 +21,7 @@ out vec3 planeNormal;
 
 out vec3 vertVelocity;
 
-out vec3 mPos;
+out vec4 mPos;
 
 void main()
 {
@@ -33,10 +33,10 @@ void main()
     vec3 oldPos = (projection * view * prevModel * vec4(position, 1.0)).xyz;
 
     vec4 newPos = model * vec4(position, 1.0);
-    mPos = newPos.xyz;
+    mPos = newPos;
     newPos = projection * view * newPos;
 
-    vertVelocity = 5 * (newPos.xyz - oldPos) / deltaTime;
+    vertVelocity = (newPos.xyz - oldPos) / deltaTime;
 
     gl_Position = newPos;
 }
