@@ -146,7 +146,7 @@ GLfloat ambientWeight = 0.15f;
 
 // Dissipation factors
 GLfloat velocityDissipation = 0.8f; // 0.8f
-GLfloat densityDissipation = 0.999f; // 0.9f
+GLfloat densityDissipation = 0.9f; // 0.9f
 GLfloat temperatureDissipation = 0.9f; // 0.9f
 
 // Fluid Volume parameters
@@ -464,7 +464,7 @@ int main()
             // we apply the external forces and splat density and temperature
             glm::vec3 placeholder_force = glm::vec3(0, -1, 0) * 2.0f;
             glm::vec3 force_center = glm::vec3(GRID_WIDTH / 2.0f, GRID_HEIGHT * 0.7f, GRID_DEPTH / 2.0f);
-            float force_radius = 2.5f;
+            float force_radius = 5.0f;
 
             // we increase density and temperature based on applied force
             float dyeColor = 1.2f;

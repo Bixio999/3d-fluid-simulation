@@ -33,26 +33,27 @@ void main() {
     vec3 obsVelU = texture(ObstacleVelocityTexture, InverseSize * (fragCoord - vec3(0, 0, 1))).xyz;
     vec3 obsVelD = texture(ObstacleVelocityTexture, InverseSize * (fragCoord + vec3(0, 0, 1))).xyz;
 
-    // if (obsL.x > 0.0) vL = obsL.yzx;
-    // if (obsR.x > 0.0) vR = obsR.yzx;
-    // if (obsB.x > 0.0) vB = obsB.yzx;
-    // if (obsT.x > 0.0) vT = obsT.yzx;
-    // if (obsU.x > 0.0) vU = obsU.yzx;
-    // if (obsD.x > 0.0) vD = obsD.yzx;
 
-    if (obsL.x > 0.0) vL = obsVelL.yzx;
-    if (obsR.x > 0.0) vR = obsVelR.yzx;
-    if (obsB.x > 0.0) vB = obsVelB.yzx;
-    if (obsT.x > 0.0) vT = obsVelT.yzx;
-    if (obsU.x > 0.0) vU = obsVelU.yzx;
-    if (obsD.x > 0.0) vD = obsVelD.yzx;
+    // if (obsL.x > 0.0) vL = obsVelL.yzx;
+    // if (obsR.x > 0.0) vR = obsVelR.yzx;
+    // if (obsB.x > 0.0) vB = obsVelB.yzx;
+    // if (obsT.x > 0.0) vT = obsVelT.yzx;
+    // if (obsU.x > 0.0) vU = obsVelU.yzx;
+    // if (obsD.x > 0.0) vD = obsVelD.yzx;
+
+    if (obsL.x > 0.0) vL = obsVelL.xyz;
+    if (obsR.x > 0.0) vR = obsVelR.xyz;
+    if (obsB.x > 0.0) vB = obsVelB.xyz;
+    if (obsT.x > 0.0) vT = obsVelT.xyz;
+    if (obsU.x > 0.0) vU = obsVelU.xyz;
+    if (obsD.x > 0.0) vD = obsVelD.xyz;
     
-    if (obsL.x > 0.0) vL = vec3(0.0);
-    if (obsR.x > 0.0) vR = vec3(0.0);
-    if (obsB.x > 0.0) vB = vec3(0.0);
-    if (obsT.x > 0.0) vT = vec3(0.0);
-    if (obsU.x > 0.0) vU = vec3(0.0);
-    if (obsD.x > 0.0) vD = vec3(0.0);
+    // if (obsL.x > 0.0) vL = vec3(0.0);
+    // if (obsR.x > 0.0) vR = vec3(0.0);
+    // if (obsB.x > 0.0) vB = vec3(0.0);
+    // if (obsT.x > 0.0) vT = vec3(0.0);
+    // if (obsU.x > 0.0) vU = vec3(0.0);
+    // if (obsD.x > 0.0) vD = vec3(0.0);
 
     FragColor = 0.5 * (vR.x - vL.x + vT.y - vB.y + vU.z - vD.z);
 
