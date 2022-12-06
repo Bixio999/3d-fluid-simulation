@@ -210,8 +210,8 @@ void main()
         if (curr * prev < 0.0 && !surfaceFound)
         {
             surfaceFound = true;
-            surface = vec3(i, curr, prev);
-            // surface = p;
+            // surface = vec3(i, curr, prev);
+            surface = p;
             // break;
         }
     }
@@ -223,13 +223,14 @@ void main()
         vec3 surfaceNormal = ComputeGradient(surface);
         surfaceNormal = normalize(surfaceNormal);
 
-        finalColor = vec4(surface, 1.0);
+        // finalColor = vec4(surface, 1.0);
 
-        // vec2 refractionPos = gl_FragCoord.xy - vec2(dot(surfaceNormal, cameraRight), dot(surfaceNormal, cameraUp));
-        // vec3 refractionColor = texture(BackgroundTexture, refractionPos * InverseScreenSize).xyz;
+        vec2 refractionPos = gl_FragCoord.xy - vec2(dot(surfaceNormal, cameraRight), dot(surfaceNormal, cameraUp));
+        vec3 refractionColor = texture(BackgroundTexture, refractionPos * InverseScreenSize).xyz;
 
-        // vec3 color = fluidColor * alpha + refractionColor * (1.0 - alpha);
+        vec3 color = fluidColor * alpha + refractionColor * (1.0 - alpha);
 
+        finalColor = vec4(color, 1.0);
         // finalColor = vec4(ComputeLighting(color, surfaceNormal), 1.0);
     }
 

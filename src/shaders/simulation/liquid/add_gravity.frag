@@ -19,7 +19,7 @@ void main()
     vec3 velocity = texture(VelocityTexture, fragCoord * InverseSize).xyz;
     float levelSet = texture(LevelSetTexture, fragCoord * InverseSize).r;
 
-    if (levelSet <= levelSetThreshold)
+    if (levelSet < levelSetThreshold)
         velocity.y -= gravityAcceleration * timeStep;
 
     FragColor = vec4(velocity, 0.0);

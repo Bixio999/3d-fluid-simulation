@@ -500,6 +500,15 @@ int main()
             cubeModelMatrix = glm::translate(cubeModelMatrix, fluidTranslation);
             cubeModelMatrix = glm::scale(cubeModelMatrix, glm::vec3(fluidScale));
 
+            // we update the model matrix for the bunny
+            bunny.prevModelMatrix = bunny.modelMatrix;
+            bunny.modelMatrix = glm::mat4(1.0f);
+            bunnyNormalMatrix = glm::mat3(1.0f);
+            bunny.modelMatrix = glm::translate(bunny.modelMatrix, glm::vec3(4.0f, 1.0f, 0.0f));
+            // bunny.modelMatrix = glm::translate(bunny.modelMatrix, glm::vec3(0.0f, 1.0f, 1.0f));
+            bunny.modelMatrix = glm::rotate(bunny.modelMatrix, glm::radians(orientationY), glm::vec3(0.0f, 1.0f, 0.0f));
+            bunny.modelMatrix = glm::scale(bunny.modelMatrix, glm::vec3(0.3f, 0.3f, 0.3f));
+
             // we draw the dynamic obstacles in the obstacle buffer
             DynamicObstacle(stencilObstacleShader, obstacleVelocityShader, obstacle_slab, obstacle_velocity_slab, temp_velocity_slab, bunny, fluidTranslation, fluidScale, simulationFramerate);
 
@@ -512,6 +521,8 @@ int main()
             
             // advect gas density or liquid level set
             AdvectMacCormack(&advectionShader, &macCormackShader, &velocity_slab, &phi1_hat_slab, &phi2_hat_slab, &obstacle_slab, &density_slab, &temp_pressure_divergence_slab, densityDissipation, timeStep);
+            // Advect(&advectionShader, &velocity_slab, &obstacle_slab, &density_slab, &temp_pressure_divergence_slab, densityDissipation, timeStep);
+            // SwapSlabs(&density_slab, &temp_pressure_divergence_slab);
            
             if (targetFluid == GAS)
             {
@@ -544,7 +555,7 @@ int main()
             }
             else
             {
-                // AddDensity(&dyeShader, &density_slab, &temp_pressure_divergence_slab, force_center, force_radius, -force_radius);
+                AddDensity(&dyeShader, &density_slab, &temp_pressure_divergence_slab, force_center, force_radius, -force_radius);
 
                 ApplyGravity(*gravityShader, velocity_slab, density_slab, temp_velocity_slab, gravityAcceleration, timeStep);
             }
