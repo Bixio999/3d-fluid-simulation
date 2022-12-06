@@ -13,6 +13,11 @@
 #include <utils/shader.h>
 #include <utils/model.h>
 
+enum TargetFluid {
+    GAS,
+    LIQUID
+};
+
 struct Slab
 {
     GLuint fbo;
@@ -94,16 +99,23 @@ void AddDensity(Shader* dyeShader, Slab *density, Slab *dest, glm::vec3 position
 void AddTemperature(Shader *dyeShader, Slab *temperature, Slab *dest, glm::vec3 position, float radius, float appliedTemperature);
 
 // apply pressure
-void ApplyPressure(Shader* pressureShader, Slab *velocity, Slab *pressure, ObstacleSlab *obstacle, Slab *obstacleVelocity, Slab *dest);
+void ApplyPressure(Shader* pressureShader, Slab *velocity, Slab *pressure, Slab *levelSet, ObstacleSlab *obstacle, Slab *obstacleVelocity, Slab *dest, GLboolean isLiquidSimulation);
 
 /////////////////////////////////////////////
 
-// render back faces of the cube
+// generate the raydata texture for the raymarching 
 void RayData(Shader &backShader, Shader &frontShader, Model &cubeModel, Slab &back, Slab &front, Scene &scene, glm::mat4 &model, glm::mat4 &view, glm::mat4 &projection, glm::vec2 inverseScreenSize);
 
-// render the fluid using the raycasting technique
-void RenderFluid(Shader &renderShader, Model &cubeModel, glm::mat4 &model, glm::mat4 &view, glm::mat4 &projection, Slab &rayDataFront, Slab &rayDataBack, Slab &density, Scene &dest, glm::vec2 inverseScreenSize, GLfloat nearPlane, glm::vec3 eyePosition, glm::vec3 cameraFront);
+// render the gas using the raycasting technique
+void RenderGas(Shader &renderShader, Model &cubeModel, glm::mat4 &model, glm::mat4 &view, glm::mat4 &projection, Slab &rayDataFront, Slab &rayDataBack, Slab &density, Scene &dest, glm::vec2 inverseScreenSize, GLfloat nearPlane, glm::vec3 eyePosition, glm::vec3 cameraFront);
 
+// generate the surface of the liquid
+void LevelZeroSurface(Shader &levelZeroShader, Slab &levelSet, Slab &dest);
+
+// render the liquid using the raycasting technique
+void RenderLiquid(Shader &renderShader, Slab &levelSet, Slab &rayDataFront, Slab &rayDataBack, Scene &backgroudScene, Scene &dest, Model &cubeModel, glm::mat4 &model, glm::mat4 &view, glm::mat4 &projection, glm::vec2 inverseScreenSize, GLfloat nearPlane, glm::vec3 eyePosition, glm::vec3 cameraFront, glm::vec3 cameraUp, glm::vec3 cameraRight, glm::vec3 lightDirection, GLfloat Kd, GLfloat rugosity, GLfloat F0);
+
+// compose the final frame
 void BlendRendering(Shader &blendingShader, Scene &scene, Scene &fluid, Slab &raydataBack, glm::vec2 inverseScreenSize);
 
 /////////////////////////////////////////////
@@ -119,3 +131,13 @@ void DynamicObstacle(Shader &stencilObstacleShader, Shader &obstacleVelocityShad
 
 Slab CreateStencilBuffer(GLuint width, GLuint height);
 
+////////////////////// LIQUID SIMULATION ///////////////////////
+
+// initialize the simulation
+void InitLiquidSimulation(Shader &initLiquidSimShader, Slab &levelSet, GLfloat initialHeight = 0.5f);
+
+// update the level set
+void ApplyLevelSetDamping(Shader &dampingLevelSetShader, Slab &levelSet, ObstacleSlab obstacle, Slab &dest, GLfloat dampingFactor, GLfloat equilibriumHeight = 0.5f);
+
+// update the velocity with gravity
+void ApplyGravity(Shader &gravityShader, Slab &velocity, Slab &levelSet, Slab &dest, GLfloat gravityAcceleration, GLfloat timeStep, GLfloat threshold = 0.0f);

@@ -330,6 +330,9 @@ void AdvectMacCormack(Shader* advectionShader, Shader* macCormackShader, Slab *v
     glActiveTexture(GL_TEXTURE3);
     glBindTexture(GL_TEXTURE_3D, source->tex);
     glUniform1i(glGetUniformLocation(macCormackShader->Program, "SourceTexture"), 3);
+    glActiveTexture(GL_TEXTURE4);
+    glBindTexture(GL_TEXTURE_3D, obstacle->tex);
+    glUniform1i(glGetUniformLocation(macCormackShader->Program, "ObstacleTexture"), 4);
 
     glUniform1f(glGetUniformLocation(macCormackShader->Program, "timeStep"), timeStep);
     glUniform3fv(glGetUniformLocation(macCormackShader->Program, "InverseSize"), 1, glm::value_ptr(InverseSize));
@@ -341,6 +344,7 @@ void AdvectMacCormack(Shader* advectionShader, Shader* macCormackShader, Slab *v
     glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_3D, 0);
     glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_3D, 0);
     glActiveTexture(GL_TEXTURE3); glBindTexture(GL_TEXTURE_3D, 0);
+    glActiveTexture(GL_TEXTURE4); glBindTexture(GL_TEXTURE_3D, 0);
 
     SwapSlabs(source, dest);
 }
@@ -504,7 +508,7 @@ void Jacobi(Shader* jacobiShader, Slab *pressure, Slab *divergence, ObstacleSlab
 
 
 // apply pressure
-void ApplyPressure(Shader* pressureShader, Slab *velocity, Slab *pressure, ObstacleSlab *obstacle, Slab *obstacleVelocity, Slab *dest)
+void ApplyPressure(Shader* pressureShader, Slab *velocity, Slab *pressure, Slab *levelSet, ObstacleSlab *obstacle, Slab *obstacleVelocity, Slab *dest, GLboolean isLiquidSimulation)
 {
     pressureShader->Use();
 
@@ -522,6 +526,14 @@ void ApplyPressure(Shader* pressureShader, Slab *velocity, Slab *pressure, Obsta
     glBindTexture(GL_TEXTURE_3D, obstacleVelocity->tex);
     glUniform1i(glGetUniformLocation(pressureShader->Program, "ObstacleVelocityTexture"), 3);
 
+    if (isLiquidSimulation)
+    {
+        glActiveTexture(GL_TEXTURE4);
+        glBindTexture(GL_TEXTURE_3D, levelSet->tex);
+        glUniform1i(glGetUniformLocation(pressureShader->Program, "LevelSetTexture"), 4);
+    }
+    glUniform1i(glGetUniformLocation(pressureShader->Program, "isLiquidSimulation"), isLiquidSimulation);
+
     glUniform3fv(glGetUniformLocation(pressureShader->Program, "InverseSize"), 1, glm::value_ptr(InverseSize));
 
     glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, GRID_DEPTH);
@@ -530,6 +542,7 @@ void ApplyPressure(Shader* pressureShader, Slab *velocity, Slab *pressure, Obsta
     glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_3D, 0);
     glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_3D, 0);
     glActiveTexture(GL_TEXTURE3); glBindTexture(GL_TEXTURE_3D, 0);
+    glActiveTexture(GL_TEXTURE4); glBindTexture(GL_TEXTURE_3D, 0);
 
     SwapSlabs(velocity, dest);
 }
@@ -592,7 +605,7 @@ void RayData(Shader &backShader, Shader &frontShader, Model &cubeModel, Slab &ba
 /////////////////////// VOLUME RENDERING WITH RAYMARCHING TECHNIQUE //////////////////////////
 
 // render front faces of the cube
-void RenderFluid(Shader &renderShader, Model &cubeModel, glm::mat4 &model, glm::mat4 &view, glm::mat4 &projection, Slab &rayDataFront, Slab &rayDataBack, Slab &density, Scene &dest, glm::vec2 inverseScreenSize, GLfloat nearPlane, glm::vec3 eyePosition, glm::vec3 cameraFront)
+void RenderGas(Shader &renderShader, Model &cubeModel, glm::mat4 &model, glm::mat4 &view, glm::mat4 &projection, Slab &rayDataFront, Slab &rayDataBack, Slab &density, Scene &dest, glm::vec2 inverseScreenSize, GLfloat nearPlane, glm::vec3 eyePosition, glm::vec3 cameraFront)
 {
     renderShader.Use();
     glBindFramebuffer(GL_FRAMEBUFFER, dest.fbo);
@@ -629,6 +642,52 @@ void RenderFluid(Shader &renderShader, Model &cubeModel, glm::mat4 &model, glm::
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
+
+void RenderLiquid(Shader &renderShader, Slab &levelSet, Slab &rayDataFront, Slab &rayDataBack, Scene &backgroudScene, Scene &dest, Model &cubeModel, glm::mat4 &model, glm::mat4 &view, glm::mat4 &projection, glm::vec2 inverseScreenSize, GLfloat nearPlane, glm::vec3 eyePosition, glm::vec3 cameraFront, glm::vec3 cameraUp, glm::vec3 cameraRight, glm::vec3 lightDirection, GLfloat Kd, GLfloat rugosity, GLfloat F0)
+{
+    renderShader.Use();
+    glBindFramebuffer(GL_FRAMEBUFFER, dest.fbo);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_3D, levelSet.tex);
+    glUniform1i(glGetUniformLocation(renderShader.Program, "LevelSetTexture"), 0);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, backgroudScene.colorTex);
+    glUniform1i(glGetUniformLocation(renderShader.Program, "BackgroundTexture"), 1);
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, rayDataFront.tex);
+    glUniform1i(glGetUniformLocation(renderShader.Program, "RayDataFront"), 2);
+    glActiveTexture(GL_TEXTURE3);
+    glBindTexture(GL_TEXTURE_2D, rayDataBack.tex);
+    glUniform1i(glGetUniformLocation(renderShader.Program, "RayDataBack"), 3);
+
+    glUniformMatrix4fv(glGetUniformLocation(renderShader.Program, "model"), 1, GL_FALSE, glm::value_ptr(model));
+    glUniformMatrix4fv(glGetUniformLocation(renderShader.Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
+    glUniformMatrix4fv(glGetUniformLocation(renderShader.Program, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
+    glUniform3fv(glGetUniformLocation(renderShader.Program, "grid_size"), 1, glm::value_ptr(glm::vec3(GRID_WIDTH, GRID_HEIGHT, GRID_DEPTH)));
+    glUniform2fv(glGetUniformLocation(renderShader.Program, "InverseScreenSize"), 1, glm::value_ptr(inverseScreenSize));
+    glUniform1f(glGetUniformLocation(renderShader.Program, "nearPlane"), nearPlane);
+    glUniform3fv(glGetUniformLocation(renderShader.Program, "eyePos"), 1, glm::value_ptr(eyePosition));
+    glUniform3fv(glGetUniformLocation(renderShader.Program, "cameraFront"), 1, glm::value_ptr(cameraFront));
+    glUniform3fv(glGetUniformLocation(renderShader.Program, "cameraUp"), 1, glm::value_ptr(cameraUp));
+    glUniform3fv(glGetUniformLocation(renderShader.Program, "cameraRight"), 1, glm::value_ptr(cameraRight));
+
+    glUniform1f(glGetUniformLocation(renderShader.Program, "Kd"), Kd);
+    glUniform1f(glGetUniformLocation(renderShader.Program, "rugosity"), rugosity);
+    glUniform1f(glGetUniformLocation(renderShader.Program, "F0"), F0);
+    glUniform3fv(glGetUniformLocation(renderShader.Program, "lightVector"), 1, glm::value_ptr(lightDirection));
+
+    cubeModel.Draw();
+
+    glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_3D, 0);
+    glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_2D, 0);
+    glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_2D, 0);
+    glActiveTexture(GL_TEXTURE3); glBindTexture(GL_TEXTURE_2D, 0);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
 
 void BlendRendering(Shader &blendingShader, Scene &scene, Scene &fluid, Slab &raydataBack, glm::vec2 inverseScreenSize)
 {
@@ -727,8 +786,8 @@ ObstacleSlab CreateObstacleBuffer(GLuint width, GLuint height, GLuint depth)
 
     glTexImage3D(GL_TEXTURE_3D, 0, GL_R16F, width, height, depth, 0, GL_RED, GL_HALF_FLOAT, NULL);
 
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
@@ -974,3 +1033,102 @@ void DynamicObstacle(Shader &stencilObstacleShader, Shader &obstacleVelocityShad
 
     DynamicObstacleVelocity(obstacleVelocityShader, obstacle_velocity, temp_slab, obstacle, view, projection, firstLayerPoint, lastLayerPoint - firstLayerPoint, deltaTime, 1.41421f * (2*scale / GRID_WIDTH));
 }
+
+///////////////////////// LIQUID SIMULATION FUNCTIONS /////////////////////////////
+
+void InitLiquidSimulation(Shader &initLiquidSimShader, Slab &levelSet, GLfloat initialHeight)
+{
+    glViewport(0,0, GRID_WIDTH, GRID_HEIGHT);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, levelSet.fbo);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    initLiquidSimShader.Use();
+
+    glUniform1f(glGetUniformLocation(initLiquidSimShader.Program, "initialHeight"), glm::clamp(initialHeight, 0.0f, 1.0f));
+    glUniform1f(glGetUniformLocation(initLiquidSimShader.Program, "grid_height"), GRID_HEIGHT);
+
+    glBindVertexArray(quadVAO);
+    glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, GRID_DEPTH);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+void ApplyLevelSetDamping(Shader &dampingLevelSetShader, Slab &levelSet, ObstacleSlab obstacle, Slab &dest, GLfloat dampingFactor, GLfloat equilibriumHeight)
+{
+    glBindFramebuffer(GL_FRAMEBUFFER, dest.fbo);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    dampingLevelSetShader.Use();
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_3D, levelSet.tex);
+    glUniform1i(glGetUniformLocation(dampingLevelSetShader.Program, "LevelSetTexture"), 0);
+
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_3D, obstacle.tex);
+    glUniform1i(glGetUniformLocation(dampingLevelSetShader.Program, "ObstacleTexture"), 1);
+
+    glUniform1f(glGetUniformLocation(dampingLevelSetShader.Program, "dampingFactor"), glm::clamp(dampingFactor, 0.0f, 1.0f));
+    glUniform1f(glGetUniformLocation(dampingLevelSetShader.Program, "equilibriumHeight"), glm::clamp(equilibriumHeight, 0.0f, 1.0f));
+    glUniform3fv(glGetUniformLocation(dampingLevelSetShader.Program, "InverseSize"), 1, glm::value_ptr(InverseSize));
+    glUniform1f(glGetUniformLocation(dampingLevelSetShader.Program, "grid_height"), GRID_HEIGHT);
+
+    glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, GRID_DEPTH);
+
+    glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_3D, 0);
+    glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_3D, 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    SwapSlabs(&levelSet, &dest);
+}
+
+void ApplyGravity(Shader &gravityShader, Slab &velocity, Slab &levelSet, Slab &dest, GLfloat gravityAcceleration, GLfloat timeStep, GLfloat threshold)
+{
+    glBindFramebuffer(GL_FRAMEBUFFER, dest.fbo);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    gravityShader.Use();
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_3D, velocity.tex);
+    glUniform1i(glGetUniformLocation(gravityShader.Program, "VelocityTexture"), 0);
+    
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_3D, levelSet.tex);
+    glUniform1i(glGetUniformLocation(gravityShader.Program, "LevelSetTexture"), 1);
+
+    glUniform3fv(glGetUniformLocation(gravityShader.Program, "InverseSize"), 1, glm::value_ptr(InverseSize));
+    glUniform1f(glGetUniformLocation(gravityShader.Program, "gravityAcceleration"), gravityAcceleration);
+    glUniform1f(glGetUniformLocation(gravityShader.Program, "timeStep"), timeStep);
+    glUniform1f(glGetUniformLocation(gravityShader.Program, "levelSetThreshold"), threshold);
+
+    glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, GRID_DEPTH);
+
+    glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_3D, 0);
+    glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_3D, 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    SwapSlabs(&velocity, &dest);
+}
+
+void LevelZeroSurface(Shader &levelZeroShader, Slab &levelSet, Slab &dest)
+{
+    glBindFramebuffer(GL_FRAMEBUFFER, dest.fbo);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    levelZeroShader.Use();
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_3D, levelSet.tex);
+    glUniform1i(glGetUniformLocation(levelZeroShader.Program, "LevelSetTexture"), 0);
+
+    glUniform3fv(glGetUniformLocation(levelZeroShader.Program, "InverseSize"), 1, glm::value_ptr(InverseSize));
+
+    glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, GRID_DEPTH);
+
+    glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_3D, 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+

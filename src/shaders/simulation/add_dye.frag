@@ -35,8 +35,9 @@ void main() {
     gaussianSplat = clamp(gaussianSplat, 0.0, 1.0);
 
     float currDensity = texture(DensityTexture, fragCoord * InverseSize).r;
-    float finalDensity = currDensity + gaussianSplat * dyeIntensity;
-    finalDensity = clamp(finalDensity, 0.0, 1.0);
+    float finalDensity = currDensity;
+    if (gaussianSplat > 0.01) finalDensity = gaussianSplat * dyeIntensity;
+    // finalDensity = clamp(finalDensity, 0.0, 1.0);
 
     outColor = finalDensity;
 }

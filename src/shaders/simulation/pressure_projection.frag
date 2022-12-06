@@ -1,14 +1,28 @@
 #version 410 core
 
-out vec3 newVelocity;
+out vec3 FragColor;
 
 uniform sampler3D VelocityTexture;
 uniform sampler3D PressureTexture;
 uniform sampler3D ObstacleTexture;
 uniform sampler3D ObstacleVelocityTexture;
+uniform sampler3D LevelSetTexture;
 uniform vec3 InverseSize;
 
+uniform bool isLiquidSimulation;
+
 in float layer;
+
+bool CheckMask(vec3 pos)
+{
+    if (isLiquidSimulation)
+    {
+        // avoid sampling when simulating gas
+        if (texture(LevelSetTexture, pos).r > 0.0)
+            return false;
+    }
+    return true;
+}
 
 void main()
 {
@@ -16,9 +30,9 @@ void main()
 
     float obsCenter = texture(ObstacleTexture, fragCoord * InverseSize).r;
 
-    if (obsCenter > 0.0)
-        newVelocity = vec3(0.0);
-    else
+    FragColor = texture(VelocityTexture, fragCoord * InverseSize).xyz;
+
+    if (obsCenter < 1.0)
     {
         float pCenter = texture(PressureTexture, fragCoord * InverseSize).r;
 
@@ -83,15 +97,18 @@ void main()
             obsMask.z = 0.0;
         }
 
-        vec3 gradient = 0.5f * vec3(pRight - pLeft, pFront - pBack, pTop - pBottom);
+        vec3 gradient = 0.5 * vec3(pRight - pLeft, pFront - pBack, pTop - pBottom);
 
-        vec3 oldVelocity = texture(VelocityTexture, fragCoord * InverseSize).xyz;
-
-        newVelocity = oldVelocity - gradient;
+        vec3 newVelocity = FragColor - gradient;
         newVelocity = (obsMask * newVelocity) + obsVelocity;
 
         if (length(newVelocity) < 0.0001)
             newVelocity = vec3(0.0);
+
+        if (CheckMask(fragCoord * InverseSize))
+            FragColor = newVelocity;
     }
+    else
+        FragColor = texture(ObstacleVelocityTexture, fragCoord * InverseSize).xyz;
 
 }

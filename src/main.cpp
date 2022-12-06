@@ -136,8 +136,20 @@ GLfloat timeStep = 0.25f;
 GLfloat lastSimulationUpdate = 0.0f;
 GLfloat simulationFramerate = 1.0f / 60.0f;
 
+// we define the target for fluid simulation
+TargetFluid targetFluid = LIQUID;
+
+// Level Set parameters
+GLfloat levelSetDampingFactor = 0.8f;
+
+GLfloat levelSetEquilibriumHeight = 0.4f;
+GLfloat levelSetInitialHeight = 0.4f;
+
+// Liquid parameters
+GLfloat gravityAcceleration = 1.0f;
+
 // Jacobi pressure solver iterations
-GLuint pressureIterations = 40;
+GLuint pressureIterations = 20; // 40
 
 // Buoyancy parameters
 GLfloat ambientTemperature = 0.0f;
@@ -145,7 +157,7 @@ GLfloat ambientBuoyancy = 0.9f;
 GLfloat ambientWeight = 0.15f;
 
 // Dissipation factors
-GLfloat velocityDissipation = 0.8f; // 0.8f
+GLfloat velocityDissipation = 0.6f; // 0.8f
 GLfloat densityDissipation = 0.9f; // 0.9f
 GLfloat temperatureDissipation = 0.9f; // 0.9f
 
@@ -249,38 +261,72 @@ int main()
     // glClearColor(0.26f, 0.46f, 0.98f, 1.0f);
     glClearColor(0,0,0,0);
 
+    if (targetFluid == GAS)
+        std::cout << "Target fluid: GAS" << std::endl;
+    else
+    {
+        std::cout << "Target fluid: LIQUID" << std::endl;
+        densityDissipation = 1.0f;
+    }
+
     // we create the Shader Program for the creation of the shadow map
     Shader shadow_shader("src/shaders/19_shadowmap.vert", "src/shaders/20_shadowmap.frag");
     // we create the Shader Program used for objects (which presents different subroutines we can switch)
     Shader illumination_shader = Shader("src/shaders/21_ggx_tex_shadow.vert", "src/shaders/22_ggx_tex_shadow.frag");
 
+    // we create the Shader Programs for fluid simulation
     Shader advectionShader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom"  ,"src/shaders/simulation/advection.frag");
     Shader macCormackShader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom"  ,"src/shaders/simulation/macCormack_advection.frag");
-    Shader buoyancyShader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom"  ,"src/shaders/simulation/buoyancy.frag");
     Shader divergenceShader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/simulation/divergence.frag");
     Shader jacobiShader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/simulation/jacobi_pressure.frag");
-    Shader temperatureShader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/simulation/add_temperature.frag");
     Shader externalForcesShader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/simulation/apply_force.frag");
     Shader pressureShader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/simulation/pressure_projection.frag");
     Shader dyeShader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/simulation/add_dye.frag");
+    Shader fillShader = Shader("src/shaders/rendering/load_proj_vertices.vert", "src/shaders/rendering/fill.frag");
 
-    // Shader borderObstacleShaderLayered = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/obstacles/border.geom","src/shaders/rendering/fill.frag");
-    // Shader borderObstacleShader = Shader("src/shaders/simulation/load_vertices.vert","src/shaders/rendering/fill.frag");
-    
+    // we create the simulation Shader Programs for the requested target fluid
+    Shader *buoyancyShader, *temperatureShader, *initLiquidShader, *dampingLevelSetShader, *gravityShader;
+    if (targetFluid == GAS)
+    {
+        // we create the Shader Programs for only gas simulation
+        buoyancyShader = new Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom"  ,"src/shaders/simulation/buoyancy.frag");
+        temperatureShader = new Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/simulation/add_temperature.frag");
+    }
+    else
+    {
+        // we create the Shader Programs for only liquid simulation
+        initLiquidShader = new Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/simulation/liquid/fill_levelSet.frag");
+        dampingLevelSetShader = new Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/simulation/liquid/damp_levelSet.frag");
+        gravityShader = new Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/simulation/liquid/add_gravity.frag");
+    }
+
+    // we create the Shader Programs for solid-fluid interaction
     Shader borderObstacleShaderLayered = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/obstacles/border.geom","src/shaders/obstacles/border.frag");
     Shader borderObstacleShader = Shader("src/shaders/simulation/load_vertices.vert","src/shaders/obstacles/border.frag");
 
     Shader stencilObstacleShader = Shader("src/shaders/obstacles/position/obstacle_position.vert", "src/shaders/simulation/set_layer.geom" , "src/shaders/rendering/fill.frag");
-
     Shader obstacleVelocityShader = Shader("src/shaders/obstacles/velocity/obstacle_velocity.vert", "src/shaders/obstacles/velocity/obstacle_velocity.geom", "src/shaders/obstacles/velocity/obstacle_velocity.frag");
 
+    // we create the Shader Programs for fluid rendering
     Shader raydataBackShader = Shader("src/shaders/rendering/raydata/raydata.vert", "src/shaders/rendering/raydata/raydata_back.frag");
     Shader raydataFrontShader = Shader("src/shaders/rendering/raydata/raydata.vert", "src/shaders/rendering/raydata/raydata_front.frag");
 
-    Shader renderShader = Shader("src/shaders/rendering/raydata/raydata.vert", "src/shaders/rendering/raymarching.frag");
-    Shader fillShader = Shader("src/shaders/rendering/load_proj_vertices.vert", "src/shaders/rendering/fill.frag");
-
     Shader blendingShader = Shader("src/shaders/rendering/blending/blending.vert", "src/shaders/rendering/blending/blending.frag");
+
+    // we create the rendering Shader Programs for the requested target fluid
+    Shader *renderShader, *levelZeroShader;
+    if (targetFluid == GAS)
+    {
+        // we create the Shader Programs for only gas rendering
+        renderShader = new Shader("src/shaders/rendering/raydata/raydata.vert", "src/shaders/rendering/raymarching.frag");
+    }
+    else
+    {
+        // we create the Shader Programs for only liquid rendering
+        levelZeroShader = new Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/rendering/liquid/level_zero.frag");
+
+        renderShader = new Shader("src/shaders/rendering/raydata/raydata.vert", "src/shaders/rendering/liquid/raymarching_liquid.frag");
+    }
 
     // we parse the Shader Program to search for the number and names of the subroutines.
     // the names are placed in the shaders vector
@@ -324,10 +370,25 @@ int main()
     Slab divergence_slab = CreateSlab(GRID_WIDTH, GRID_HEIGHT, GRID_DEPTH, 1);
     std::cout << "Created divergence grid = {" << divergence_slab.fbo << " , " << divergence_slab.tex << "}" << std::endl;
 
+    // we create a buffer representing the density for gas simulation and level set for liquid simulation
     Slab density_slab = CreateSlab(GRID_WIDTH, GRID_HEIGHT, GRID_DEPTH, 1);
     std::cout << "Created density grid = {" << density_slab.fbo << " , " << density_slab.tex << "}" << std::endl;
-    Slab temperature_slab = CreateSlab(GRID_WIDTH, GRID_HEIGHT, GRID_DEPTH, 1);
-    std::cout << "Created temperature grid = {" << temperature_slab.fbo << " , " << temperature_slab.tex << "}" << std::endl;
+
+    // we create the buffers for the target fluid
+    Slab temperature_slab, levelZero_slab;
+    if (targetFluid == GAS)
+    {
+        // gas simulation exclusive buffer
+        temperature_slab = CreateSlab(GRID_WIDTH, GRID_HEIGHT, GRID_DEPTH, 1);
+        std::cout << "Created temperature grid = {" << temperature_slab.fbo << " , " << temperature_slab.tex << "}" << std::endl;
+    }
+    else
+    {
+        // liquid simulation exclusive buffer
+        levelZero_slab = Create2DSlab(GRID_WIDTH, GRID_HEIGHT, 3);
+        std::cout << "Created level zero grid = {" << levelZero_slab.fbo << " , " << levelZero_slab.tex << "}" << std::endl;
+    }
+
 
     /////////////////// CREATION OF TEMPORARY BUFFERS FOR THE SIMULATION UPDATE /////////////////////////////////////////
 
@@ -398,6 +459,9 @@ int main()
     // Create shaders for fluid simulation
     InitSimulation();
 
+    if (targetFluid == LIQUID)
+        InitLiquidSimulation(*initLiquidShader, density_slab, levelSetInitialHeight);
+
     // Projection matrix of the camera: FOV angle, aspect ratio, near and far planes
     GLfloat windowNearPlane = 0.1f;
     GLfloat windowFarPlane = 10000.0f;
@@ -445,40 +509,51 @@ int main()
 
             // advect velocity
             AdvectMacCormack(&advectionShader, &macCormackShader, &velocity_slab, &phi1_hat_slab, &phi2_hat_slab, &obstacle_slab, &velocity_slab, &temp_velocity_slab, velocityDissipation, timeStep);
-            // Advect(&advectionShader, &velocity_slab, &velocity_slab, &temp_velocity_slab, velocityDissipation, timeStep);
-            // SwapSlabs(&velocity_slab, &temp_velocity_slab);
-
-            // // advect density
+            
+            // advect gas density or liquid level set
             AdvectMacCormack(&advectionShader, &macCormackShader, &velocity_slab, &phi1_hat_slab, &phi2_hat_slab, &obstacle_slab, &density_slab, &temp_pressure_divergence_slab, densityDissipation, timeStep);
-            // Advect(&advectionShader, &velocity_slab, &density_slab, &temp_pressure_divergence_slab, densityDissipation, timeStep);
-            // SwapSlabs(&density_slab, &temp_pressure_divergence_slab);
+           
+            if (targetFluid == GAS)
+            {
+                // advect temperature
+                AdvectMacCormack(&advectionShader, &macCormackShader, &velocity_slab, &phi1_hat_slab, &phi2_hat_slab, &obstacle_slab, &temperature_slab, &temp_pressure_divergence_slab, temperatureDissipation, timeStep);
 
-            // // advect temperature
-            AdvectMacCormack(&advectionShader, &macCormackShader, &velocity_slab, &phi1_hat_slab, &phi2_hat_slab, &obstacle_slab, &temperature_slab, &temp_pressure_divergence_slab, temperatureDissipation, timeStep);
-            // Advect(&advectionShader, &velocity_slab, &temperature_slab, &temp_pressure_divergence_slab, temperatureDissipation, timeStep);
-            // SwapSlabs(&temperature_slab, &temp_pressure_divergence_slab);
-
-            // we apply the buoyancy force
-            Buoyancy(&buoyancyShader, &velocity_slab, &temperature_slab, &density_slab, &temp_velocity_slab, ambientTemperature, timeStep, ambientBuoyancy, ambientWeight);
+                // we apply the buoyancy force
+                Buoyancy(buoyancyShader, &velocity_slab, &temperature_slab, &density_slab, &temp_velocity_slab, ambientTemperature, timeStep, ambientBuoyancy, ambientWeight);
+            }
+            else
+            {
+                // apply level set damping
+                ApplyLevelSetDamping(*dampingLevelSetShader, density_slab, obstacle_slab, temp_pressure_divergence_slab, levelSetDampingFactor, levelSetEquilibriumHeight);
+            }
 
             // we apply the external forces and splat density and temperature
-            glm::vec3 placeholder_force = glm::vec3(0, -1, 0) * 2.0f;
-            glm::vec3 force_center = glm::vec3(GRID_WIDTH / 2.0f, GRID_HEIGHT * 0.7f, GRID_DEPTH / 2.0f);
-            float force_radius = 5.0f;
+            glm::vec3 placeholder_force = glm::vec3(0, 1, 1) * 2.0f;
+            glm::vec3 force_center = glm::vec3(GRID_WIDTH / 2.0f, GRID_HEIGHT * 0.8f, GRID_DEPTH / 2.0f);
+            float force_radius = 3.0f;
 
             // we increase density and temperature based on applied force
             float dyeColor = 1.2f;
             // float dyeColor = placeholder_force.length();
 
-            AddDensity(&dyeShader, &density_slab, &temp_pressure_divergence_slab, force_center, force_radius, dyeColor);
+            if (targetFluid == GAS)
+            {
+                AddDensity(&dyeShader, &density_slab, &temp_pressure_divergence_slab, force_center, force_radius, dyeColor);
 
-            AddTemperature(&temperatureShader, &temperature_slab, &temp_pressure_divergence_slab, force_center, force_radius, dyeColor);
+                AddTemperature(temperatureShader, &temperature_slab, &temp_pressure_divergence_slab, force_center, force_radius, dyeColor);
+            }
+            else
+            {
+                // AddDensity(&dyeShader, &density_slab, &temp_pressure_divergence_slab, force_center, force_radius, -force_radius);
 
-            // force_center.y *= 1.1f;
+                ApplyGravity(*gravityShader, velocity_slab, density_slab, temp_velocity_slab, gravityAcceleration, timeStep);
+            }
+
+            force_center.y = 1 - force_center.y;
             // force_center.x -= GRID_WIDTH / 5.0f;
             force_radius = 20.0f;
-            // placeholder_force *= 1.1f;
-            ApplyExternalForces(&externalForcesShader, &velocity_slab, &temp_velocity_slab, timeStep, placeholder_force, force_center, force_radius);
+            placeholder_force *= 2.0f;
+            // ApplyExternalForces(&externalForcesShader, &velocity_slab, &temp_velocity_slab, timeStep, placeholder_force, force_center, force_radius);
 
             // force_center.x += 2 * GRID_WIDTH / 5.0f;
             // placeholder_force.x *= -1;
@@ -491,7 +566,7 @@ int main()
             Jacobi(&jacobiShader, &pressure_slab, &divergence_slab, &obstacle_slab, &temp_pressure_divergence_slab, pressureIterations);
 
             // we apply the pressure projection
-            ApplyPressure(&pressureShader, &velocity_slab, &pressure_slab, &obstacle_slab, &obstacle_velocity_slab, &temp_velocity_slab);
+            ApplyPressure(&pressureShader, &velocity_slab, &pressure_slab, &density_slab, &obstacle_slab, &obstacle_velocity_slab, &temp_velocity_slab, targetFluid == LIQUID);
 
             // reset the state
             EndSimulation();
@@ -619,8 +694,16 @@ int main()
 
         //////////////////////////////// STEP 2 - RAYMARCHING ////////////////////////////////////////////////
 
-        // we render the fluid
-        RenderFluid(renderShader, cubeModel, cubeModelMatrix, view, projection, rayDataFront, rayDataBack, density_slab, fluidScene, inverseScreenSize, windowNearPlane, camera.Position, camera.Front);
+        if (targetFluid == GAS)
+        {
+            // we render the gas
+            RenderGas(*renderShader, cubeModel, cubeModelMatrix, view, projection, rayDataFront, rayDataBack, density_slab, fluidScene, inverseScreenSize, windowNearPlane, camera.Position, camera.Front);
+        }
+        else
+        {
+            // we render the liquid
+            RenderLiquid(*renderShader, density_slab, rayDataFront, rayDataBack, scene, fluidScene, cubeModel, cubeModelMatrix, view, projection, inverseScreenSize, windowNearPlane, camera.Position, camera.Front, camera.Up, camera.Right, lightDir0, Kd, alpha, F0);
+        }
 
         // we combine the fluid rendering with the scene rendering
         BlendRendering(blendingShader, scene, fluidScene, rayDataBack, inverseScreenSize);
@@ -728,8 +811,8 @@ void RenderObjects(Shader &shader, Model &planeModel, ObstacleObject &sphere, Ob
     bunny.prevModelMatrix = bunny.modelMatrix;
     bunny.modelMatrix = glm::mat4(1.0f);
     bunnyNormalMatrix = glm::mat3(1.0f);
-    // bunny.modelMatrix = glm::translate(bunny.modelMatrix, glm::vec3(3.0f, 1.0f, 0.0f));
-    bunny.modelMatrix = glm::translate(bunny.modelMatrix, glm::vec3(0.0f, 1.0f, 1.0f));
+    bunny.modelMatrix = glm::translate(bunny.modelMatrix, glm::vec3(4.0f, 1.0f, 0.0f));
+    // bunny.modelMatrix = glm::translate(bunny.modelMatrix, glm::vec3(0.0f, 1.0f, 1.0f));
     bunny.modelMatrix = glm::rotate(bunny.modelMatrix, glm::radians(orientationY), glm::vec3(0.0f, 1.0f, 0.0f));
     bunny.modelMatrix = glm::scale(bunny.modelMatrix, glm::vec3(0.3f, 0.3f, 0.3f));
     bunnyNormalMatrix = glm::inverseTranspose(glm::mat3(view*bunny.modelMatrix));
