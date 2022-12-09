@@ -55,7 +55,7 @@ void main() {
     // if (obsU.x > 0.0) vU = vec3(0.0);
     // if (obsD.x > 0.0) vD = vec3(0.0);
 
-    FragColor = 0.5 * (vR.x - vL.x + vT.y - vB.y + vU.z - vD.z);
+    FragColor = 0.5 * (vR.x - vL.x + vT.y - vB.y + vD.z - vU.z);
 
     if (abs(FragColor) < 0.0001)
         FragColor = 0.0;
