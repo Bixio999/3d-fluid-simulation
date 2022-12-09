@@ -98,7 +98,7 @@ void EmitSegment(Point a1, Point b1)
     vec3 projFaceNormal = faceNormal - dot(faceNormal, planeNormal[0]) * planeNormal[0];
 
     // extrude the segment along the projection of the face normal
-    vec3 extrude = normalize(projFaceNormal) * texelDiagonal;
+    vec3 extrude = - normalize(projFaceNormal) * texelDiagonal;
 
     Point a2 = Point(a1.position + extrude, a1.velocity, a1.intersectionResult, a1.t);
     Point b2 = Point(b1.position + extrude, b1.velocity, b1.intersectionResult, b1.t);
@@ -131,7 +131,7 @@ void main()
 
         // float t;
 
-        result = SegmentPlaneIntersection(a, normalize(ab), p0, n, t);
+        result = SegmentPlaneIntersection(a, ab, p0, n, t);
 
         switch(result)
         {
