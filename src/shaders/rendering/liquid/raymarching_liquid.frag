@@ -20,6 +20,7 @@ uniform sampler2D RayDataFront;
 
 uniform sampler2D BackgroundTexture;
 uniform sampler3D LevelSetTexture;
+uniform sampler3D ObstacleTexture;
 
 in vec4 mvpPos;
 in vec3 ogPos;
@@ -66,12 +67,28 @@ vec3 ComputeGradient(vec3 pos)
 {
     vec3 InverseGridSize = 1.0 / grid_size;
 
+    float center = texture(LevelSetTexture, pos).r;
+
     float left = texture(LevelSetTexture, pos + vec3(-1, 0, 0) * InverseGridSize).r;
     float right = texture(LevelSetTexture, pos + vec3(1, 0, 0) * InverseGridSize).r;
     float bottom = texture(LevelSetTexture, pos + vec3(0, -1, 0) * InverseGridSize).r;
     float top = texture(LevelSetTexture, pos + vec3(0, 1, 0) * InverseGridSize).r;
     float back = texture(LevelSetTexture, pos + vec3(0, 0, -1) * InverseGridSize).r;
     float front = texture(LevelSetTexture, pos + vec3(0, 0, 1) * InverseGridSize).r;
+
+    float obsLeft = texture(ObstacleTexture, pos + vec3(-1, 0, 0) * InverseGridSize).r;
+    float obsRight = texture(ObstacleTexture, pos + vec3(1, 0, 0) * InverseGridSize).r;
+    float obsBottom = texture(ObstacleTexture, pos + vec3(0, -1, 0) * InverseGridSize).r;
+    float obsTop = texture(ObstacleTexture, pos + vec3(0, 1, 0) * InverseGridSize).r;
+    float obsBack = texture(ObstacleTexture, pos + vec3(0, 0, -1) * InverseGridSize).r;
+    float obsFront = texture(ObstacleTexture, pos + vec3(0, 0, 1) * InverseGridSize).r;
+
+    if (obsLeft > 0.0) left = center;
+    if (obsRight > 0.0) right = center;
+    if (obsBottom > 0.0) bottom = center;
+    if (obsTop > 0.0) top = center;
+    if (obsBack > 0.0) back = center;
+    if (obsFront > 0.0) front = center;
 
     vec3 gradient = 0.5 * vec3(right - left, top - bottom, front - back);
 
@@ -122,10 +139,12 @@ vec3 ComputeLighting(vec3 color, vec3 normal)
         F += F0;
 
         // we put everything together for the specular component
-        specular = (F * G2 * D) / (4.0 * NdotV * NdotL);
+        if (NdotV * NdotL > 0.0)
+            specular = (F * G2 * D) / (4.0 * NdotV * NdotL);
     }
 
     return (lambert + specular) * NdotL;
+    // return lambert * NdotL;
 }
 
 void main()
@@ -184,7 +203,7 @@ void main()
     vec4 finalColor = vec4(0,0,0,0);
 
     float alpha = 0.0;
-    float stepSize = 0.05;
+    float stepSize = 0.1;
 
     // FragColor = vec4(dir, 1);
 
@@ -210,28 +229,44 @@ void main()
         if (curr * prev < 0.0 && !surfaceFound)
         {
             surfaceFound = true;
-            // surface = vec3(i, curr, prev);
             surface = p;
-            // break;
+            // surface = vec3(i, curr, prev);
         }
     }
 
     alpha = clamp(alpha, 0.0, 0.8);
+    float lightingFactor = 0.6;
 
-    if (curr < 0.0 || surfaceFound)
+    if (alpha > 0.0)
     {
-        vec3 surfaceNormal = ComputeGradient(surface);
+        vec3 surfaceNormal;
+        if (surfaceFound)
+            surfaceNormal = ComputeGradient(surface);
+        else
+        {
+            surfaceNormal = - ComputeGradient(p);
+            lightingFactor += lightingFactor * 0.8;
+        }
+
+        surfaceNormal.z *= -1.0;
+        surfaceNormal = (view * vec4(surfaceNormal, 0.0)).xyz;
         surfaceNormal = normalize(surfaceNormal);
 
-        // finalColor = vec4(surface, 1.0);
+        // finalColor = vec4(surfaceNormal, 1.0);
 
         vec2 refractionPos = gl_FragCoord.xy - vec2(dot(surfaceNormal, cameraRight), dot(surfaceNormal, cameraUp));
         vec3 refractionColor = texture(BackgroundTexture, refractionPos * InverseScreenSize).xyz;
+        // finalColor = vec4(refractionColor, 1.0);
+
+        // fluidColor = ComputeLighting(fluidColor, surfaceNormal);
+
+        fluidColor = fluidColor * lightingFactor + ComputeLighting(fluidColor, surfaceNormal) * (1 - lightingFactor);
+
+        // finalColor = vec4(fluidColor, 1.0);
 
         vec3 color = fluidColor * alpha + refractionColor * (1.0 - alpha);
 
         finalColor = vec4(color, 1.0);
-        // finalColor = vec4(ComputeLighting(color, surfaceNormal), 1.0);
     }
 
     FragColor = finalColor;

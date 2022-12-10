@@ -643,7 +643,7 @@ void RenderGas(Shader &renderShader, Model &cubeModel, glm::mat4 &model, glm::ma
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-void RenderLiquid(Shader &renderShader, Slab &levelSet, Slab &rayDataFront, Slab &rayDataBack, Scene &backgroudScene, Scene &dest, Model &cubeModel, glm::mat4 &model, glm::mat4 &view, glm::mat4 &projection, glm::vec2 inverseScreenSize, GLfloat nearPlane, glm::vec3 eyePosition, glm::vec3 cameraFront, glm::vec3 cameraUp, glm::vec3 cameraRight, glm::vec3 lightDirection, GLfloat Kd, GLfloat rugosity, GLfloat F0)
+void RenderLiquid(Shader &renderShader, Slab &levelSet, ObstacleSlab &obstacle, Slab &rayDataFront, Slab &rayDataBack, Scene &backgroudScene, Scene &dest, Model &cubeModel, glm::mat4 &model, glm::mat4 &view, glm::mat4 &projection, glm::vec2 inverseScreenSize, GLfloat nearPlane, glm::vec3 eyePosition, glm::vec3 cameraFront, glm::vec3 cameraUp, glm::vec3 cameraRight, glm::vec3 lightDirection, GLfloat Kd, GLfloat rugosity, GLfloat F0)
 {
     renderShader.Use();
     glBindFramebuffer(GL_FRAMEBUFFER, dest.fbo);
@@ -661,6 +661,9 @@ void RenderLiquid(Shader &renderShader, Slab &levelSet, Slab &rayDataFront, Slab
     glActiveTexture(GL_TEXTURE3);
     glBindTexture(GL_TEXTURE_2D, rayDataBack.tex);
     glUniform1i(glGetUniformLocation(renderShader.Program, "RayDataBack"), 3);
+    glActiveTexture(GL_TEXTURE4);
+    glBindTexture(GL_TEXTURE_3D, obstacle.tex);
+    glUniform1i(glGetUniformLocation(renderShader.Program, "ObstacleTexture"), 4);
 
     glUniformMatrix4fv(glGetUniformLocation(renderShader.Program, "model"), 1, GL_FALSE, glm::value_ptr(model));
     glUniformMatrix4fv(glGetUniformLocation(renderShader.Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
@@ -684,6 +687,7 @@ void RenderLiquid(Shader &renderShader, Slab &levelSet, Slab &rayDataFront, Slab
     glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_2D, 0);
     glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_2D, 0);
     glActiveTexture(GL_TEXTURE3); glBindTexture(GL_TEXTURE_2D, 0);
+    glActiveTexture(GL_TEXTURE4); glBindTexture(GL_TEXTURE_3D, 0);
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }

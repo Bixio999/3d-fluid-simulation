@@ -26,11 +26,7 @@ void main()
         vec3 u = texture(VelocityTexture, InverseSize * fragCoord).xyz;
         vec3 coord = InverseSize * (fragCoord - timeStep * u);
 
-        float obs = texture(ObstacleTexture, coord).r;
-        if (obs < 1.0)
-            finalColor = dissipation * texture(SourceTexture, coord);
-        else
-            finalColor = dissipation * vec4(u, 1.0);
+        finalColor = dissipation * texture(SourceTexture, coord);
 
         if (length(finalColor) < 0.0001)
             finalColor = vec4(0.0);

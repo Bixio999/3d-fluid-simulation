@@ -140,16 +140,17 @@ GLfloat simulationFramerate = 1.0f / 60.0f;
 TargetFluid targetFluid = LIQUID;
 
 // Level Set parameters
-GLfloat levelSetDampingFactor = 0.8f;
+GLfloat levelSetDampingFactor = 0.7f;
 
 GLfloat levelSetEquilibriumHeight = 0.4f;
 GLfloat levelSetInitialHeight = 0.4f;
 
 // Liquid parameters
-GLfloat gravityAcceleration = 1.0f;
+GLfloat gravityAcceleration = 9.0f;
+GLfloat gravityLevelSetThreshold = 50.0f;
 
 // Jacobi pressure solver iterations
-GLuint pressureIterations = 20; // 40
+GLuint pressureIterations = 40; // 40
 
 // Buoyancy parameters
 GLfloat ambientTemperature = 0.0f;
@@ -157,7 +158,7 @@ GLfloat ambientBuoyancy = 0.9f;
 GLfloat ambientWeight = 0.15f;
 
 // Dissipation factors
-GLfloat velocityDissipation = 0.6f; // 0.8f
+GLfloat velocityDissipation = 0.8f; // 0.8f
 GLfloat densityDissipation = 0.9f; // 0.9f
 GLfloat temperatureDissipation = 0.9f; // 0.9f
 
@@ -503,9 +504,9 @@ int main()
             // we update the model matrix for the bunny
             bunny.prevModelMatrix = bunny.modelMatrix;
             bunny.modelMatrix = glm::mat4(1.0f);
-            bunnyNormalMatrix = glm::mat3(1.0f);
-            bunny.modelMatrix = glm::translate(bunny.modelMatrix, glm::vec3(4.0f, 1.0f, 0.0f));
-            // bunny.modelMatrix = glm::translate(bunny.modelMatrix, glm::vec3(0.0f, 1.0f, 1.0f));
+            // bunnyNormalMatrix = glm::mat3(1.0f);
+            // bunny.modelMatrix = glm::translate(bunny.modelMatrix, glm::vec3(4.0f, 1.0f, 0.0f));
+            bunny.modelMatrix = glm::translate(bunny.modelMatrix, glm::vec3(0.0f, 1.0f, 1.0f));
             bunny.modelMatrix = glm::rotate(bunny.modelMatrix, glm::radians(orientationY), glm::vec3(0.0f, 1.0f, 0.0f));
             bunny.modelMatrix = glm::scale(bunny.modelMatrix, glm::vec3(0.3f, 0.3f, 0.3f));
 
@@ -557,7 +558,7 @@ int main()
             {
                 AddDensity(&dyeShader, &density_slab, &temp_pressure_divergence_slab, force_center, force_radius, -force_radius);
 
-                ApplyGravity(*gravityShader, velocity_slab, density_slab, temp_velocity_slab, gravityAcceleration, timeStep);
+                ApplyGravity(*gravityShader, velocity_slab, density_slab, temp_velocity_slab, gravityAcceleration, timeStep / 2, gravityLevelSetThreshold);
             }
 
             force_center.y = 1 - force_center.y;
@@ -713,7 +714,7 @@ int main()
         else
         {
             // we render the liquid
-            RenderLiquid(*renderShader, density_slab, rayDataFront, rayDataBack, scene, fluidScene, cubeModel, cubeModelMatrix, view, projection, inverseScreenSize, windowNearPlane, camera.Position, camera.Front, camera.Up, camera.Right, lightDir0, Kd, alpha, F0);
+            RenderLiquid(*renderShader, density_slab, obstacle_slab, rayDataFront, rayDataBack, scene, fluidScene, cubeModel, cubeModelMatrix, view, projection, inverseScreenSize, windowNearPlane, camera.Position, camera.Front, camera.Up, camera.Right, lightDir0, Kd, alpha, F0);
         }
 
         // we combine the fluid rendering with the scene rendering
@@ -819,13 +820,13 @@ void RenderObjects(Shader &shader, Model &planeModel, ObstacleObject &sphere, Ob
 
     // BUNNY
     // we reset to identity at each frame
-    bunny.prevModelMatrix = bunny.modelMatrix;
-    bunny.modelMatrix = glm::mat4(1.0f);
+    // bunny.prevModelMatrix = bunny.modelMatrix;
+    // bunny.modelMatrix = glm::mat4(1.0f);
     bunnyNormalMatrix = glm::mat3(1.0f);
-    bunny.modelMatrix = glm::translate(bunny.modelMatrix, glm::vec3(4.0f, 1.0f, 0.0f));
-    // bunny.modelMatrix = glm::translate(bunny.modelMatrix, glm::vec3(0.0f, 1.0f, 1.0f));
-    bunny.modelMatrix = glm::rotate(bunny.modelMatrix, glm::radians(orientationY), glm::vec3(0.0f, 1.0f, 0.0f));
-    bunny.modelMatrix = glm::scale(bunny.modelMatrix, glm::vec3(0.3f, 0.3f, 0.3f));
+    // bunny.modelMatrix = glm::translate(bunny.modelMatrix, glm::vec3(4.0f, 1.0f, 0.0f));
+    // // bunny.modelMatrix = glm::translate(bunny.modelMatrix, glm::vec3(0.0f, 1.0f, 1.0f));
+    // bunny.modelMatrix = glm::rotate(bunny.modelMatrix, glm::radians(orientationY), glm::vec3(0.0f, 1.0f, 0.0f));
+    // bunny.modelMatrix = glm::scale(bunny.modelMatrix, glm::vec3(0.3f, 0.3f, 0.3f));
     bunnyNormalMatrix = glm::inverseTranspose(glm::mat3(view*bunny.modelMatrix));
     glUniformMatrix4fv(glGetUniformLocation(shader.Program, "modelMatrix"), 1, GL_FALSE, glm::value_ptr(bunny.modelMatrix));
     glUniformMatrix3fv(glGetUniformLocation(shader.Program, "normalMatrix"), 1, GL_FALSE, glm::value_ptr(bunnyNormalMatrix));
