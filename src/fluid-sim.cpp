@@ -404,7 +404,7 @@ void ApplyExternalForces(Shader *externalForcesShader, Slab *velocity, Slab *des
 }
 
 // add density
-void AddDensity(Shader *dyeShader, Slab *density, Slab *dest, glm::vec3 position, float radius, float color)
+void AddDensity(Shader* dyeShader, Slab *density, Slab *dest, glm::vec3 position, float radius, float color, GLboolean isLiquidSimulation)
 {
     dyeShader->Use();
 
@@ -416,6 +416,7 @@ void AddDensity(Shader *dyeShader, Slab *density, Slab *dest, glm::vec3 position
     glUniform3fv(glGetUniformLocation(dyeShader->Program, "center"), 1, glm::value_ptr(position));
     glUniform1f(glGetUniformLocation(dyeShader->Program, "radius"), radius);
     glUniform1f(glGetUniformLocation(dyeShader->Program, "dyeIntensity"), color);
+    glUniform1i(glGetUniformLocation(dyeShader->Program, "isLiquidSimulation"), isLiquidSimulation);
 
     glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, GRID_DEPTH);
 

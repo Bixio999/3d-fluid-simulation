@@ -10,6 +10,8 @@ uniform float dyeIntensity;
 uniform vec3 center;
 uniform float radius;
 
+uniform bool isLiquidSimulation;
+
 in float layer;
 
 void main() {
@@ -36,8 +38,16 @@ void main() {
 
     float currDensity = texture(DensityTexture, fragCoord * InverseSize).r;
     float finalDensity = currDensity;
-    if (gaussianSplat > 0.01) finalDensity = gaussianSplat * dyeIntensity;
-    // finalDensity = clamp(finalDensity, 0.0, 1.0);
+
+    if (isLiquidSimulation)
+    {
+        if (gaussianSplat > 0.01) finalDensity = gaussianSplat * dyeIntensity;
+    }
+    else
+    {
+        finalDensity += gaussianSplat * dyeIntensity;
+        finalDensity = clamp(finalDensity, 0.0, 1.0);
+    }
 
     outColor = finalDensity;
 }

@@ -159,7 +159,7 @@ GLfloat ambientWeight = 0.15f;
 
 // Dissipation factors
 GLfloat velocityDissipation = 0.8f; // 0.8f
-GLfloat densityDissipation = 0.9f; // 0.9f
+GLfloat densityDissipation = 0.99f; // 0.9f
 GLfloat temperatureDissipation = 0.9f; // 0.9f
 
 // Fluid Volume parameters
@@ -483,7 +483,7 @@ int main()
         // we apply FPS camera movements
         apply_camera_movements();
 
-        // we update the simulation based on the defined timestep
+        // we update the simulation based on the defined framerate
         if (currentFrame - lastSimulationUpdate >= simulationFramerate)
         {
             /////////////////// STEP 1 - UPDATE OBSTACLES  //////////////////////////////////////////////////////////////////////////
@@ -522,8 +522,6 @@ int main()
             
             // advect gas density or liquid level set
             AdvectMacCormack(&advectionShader, &macCormackShader, &velocity_slab, &phi1_hat_slab, &phi2_hat_slab, &obstacle_slab, &density_slab, &temp_pressure_divergence_slab, densityDissipation, timeStep);
-            // Advect(&advectionShader, &velocity_slab, &obstacle_slab, &density_slab, &temp_pressure_divergence_slab, densityDissipation, timeStep);
-            // SwapSlabs(&density_slab, &temp_pressure_divergence_slab);
            
             if (targetFluid == GAS)
             {
@@ -540,9 +538,22 @@ int main()
             }
 
             // we apply the external forces and splat density and temperature
-            glm::vec3 placeholder_force = glm::vec3(0, 1, 1) * 2.0f;
-            glm::vec3 force_center = glm::vec3(GRID_WIDTH / 2.0f, GRID_HEIGHT * 0.8f, GRID_DEPTH / 2.0f);
-            float force_radius = 3.0f;
+            glm::vec3 placeholder_force;
+            glm::vec3 force_center;
+            float force_radius;
+
+            if (targetFluid == GAS)
+            {
+                placeholder_force = glm::vec3(0, 0, -1) * 2.0f;
+                force_center = glm::vec3(GRID_WIDTH / 2.0f, GRID_HEIGHT * 0.4f, GRID_DEPTH * 0.7f);
+                force_radius = 5.0f;
+            }
+            else
+            {
+                placeholder_force = glm::vec3(0, -1, 0) * 2.0f;
+                force_center = glm::vec3(GRID_WIDTH / 2.0f, GRID_HEIGHT * 0.8f, GRID_DEPTH / 2.0f);
+                force_radius = 3.0f;
+            }
 
             // we increase density and temperature based on applied force
             float dyeColor = 1.2f;
@@ -550,21 +561,28 @@ int main()
 
             if (targetFluid == GAS)
             {
-                AddDensity(&dyeShader, &density_slab, &temp_pressure_divergence_slab, force_center, force_radius, dyeColor);
+                AddDensity(&dyeShader, &density_slab, &temp_pressure_divergence_slab, force_center, force_radius, dyeColor, GL_FALSE);
 
                 AddTemperature(temperatureShader, &temperature_slab, &temp_pressure_divergence_slab, force_center, force_radius, dyeColor);
+
+                // force_center.y = 1 - force_center.y;
+                // force_center.x -= GRID_WIDTH / 5.0f;
+                // placeholder_force *= 2.0f;
+                force_radius = 20.0f;
+                ApplyExternalForces(&externalForcesShader, &velocity_slab, &temp_velocity_slab, timeStep, placeholder_force, force_center, force_radius);
             }
             else
             {
-                AddDensity(&dyeShader, &density_slab, &temp_pressure_divergence_slab, force_center, force_radius, -force_radius);
+                AddDensity(&dyeShader, &density_slab, &temp_pressure_divergence_slab, force_center, force_radius, -force_radius, GL_TRUE);
 
                 ApplyGravity(*gravityShader, velocity_slab, density_slab, temp_velocity_slab, gravityAcceleration, timeStep / 2, gravityLevelSetThreshold);
             }
 
-            force_center.y = 1 - force_center.y;
+
+            // force_center.y = 1 - force_center.y;
             // force_center.x -= GRID_WIDTH / 5.0f;
-            force_radius = 20.0f;
-            placeholder_force *= 2.0f;
+            // placeholder_force *= 2.0f;
+            // force_radius = 20.0f;
             // ApplyExternalForces(&externalForcesShader, &velocity_slab, &temp_velocity_slab, timeStep, placeholder_force, force_center, force_radius);
 
             // force_center.x += 2 * GRID_WIDTH / 5.0f;

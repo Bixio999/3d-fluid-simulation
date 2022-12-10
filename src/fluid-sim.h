@@ -93,7 +93,7 @@ void Jacobi(Shader* jacobiShader, Slab *pressure, Slab *divergence, ObstacleSlab
 void ApplyExternalForces(Shader* externalForcesShader, Slab *velocity, Slab *dest, float timeStep, glm::vec3 force, glm::vec3 position, float radius);
 
 // add density
-void AddDensity(Shader* dyeShader, Slab *density, Slab *dest, glm::vec3 position, float radius, float color);
+void AddDensity(Shader* dyeShader, Slab *density, Slab *dest, glm::vec3 position, float radius, float color, GLboolean isLiquidSimulation);
 
 // add temperature
 void AddTemperature(Shader *dyeShader, Slab *temperature, Slab *dest, glm::vec3 position, float radius, float appliedTemperature);
