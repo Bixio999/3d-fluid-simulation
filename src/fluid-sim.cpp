@@ -509,7 +509,7 @@ void Jacobi(Shader* jacobiShader, Slab *pressure, Slab *divergence, ObstacleSlab
 
 
 // apply pressure
-void ApplyPressure(Shader* pressureShader, Slab *velocity, Slab *pressure, Slab *levelSet, ObstacleSlab *obstacle, Slab *obstacleVelocity, Slab *dest, GLboolean isLiquidSimulation)
+void ApplyPressure(Shader* pressureShader, Slab *velocity, Slab *pressure, ObstacleSlab *obstacle, Slab *obstacleVelocity, Slab *dest)
 {
     pressureShader->Use();
 
@@ -527,14 +527,6 @@ void ApplyPressure(Shader* pressureShader, Slab *velocity, Slab *pressure, Slab 
     glBindTexture(GL_TEXTURE_3D, obstacleVelocity->tex);
     glUniform1i(glGetUniformLocation(pressureShader->Program, "ObstacleVelocityTexture"), 3);
 
-    if (isLiquidSimulation)
-    {
-        glActiveTexture(GL_TEXTURE4);
-        glBindTexture(GL_TEXTURE_3D, levelSet->tex);
-        glUniform1i(glGetUniformLocation(pressureShader->Program, "LevelSetTexture"), 4);
-    }
-    glUniform1i(glGetUniformLocation(pressureShader->Program, "isLiquidSimulation"), isLiquidSimulation);
-
     glUniform3fv(glGetUniformLocation(pressureShader->Program, "InverseSize"), 1, glm::value_ptr(InverseSize));
 
     glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, GRID_DEPTH);
@@ -543,7 +535,6 @@ void ApplyPressure(Shader* pressureShader, Slab *velocity, Slab *pressure, Slab 
     glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_3D, 0);
     glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_3D, 0);
     glActiveTexture(GL_TEXTURE3); glBindTexture(GL_TEXTURE_3D, 0);
-    glActiveTexture(GL_TEXTURE4); glBindTexture(GL_TEXTURE_3D, 0);
 
     SwapSlabs(velocity, dest);
 }

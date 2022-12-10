@@ -132,7 +132,7 @@ GLfloat deltaTime = 0.0f;
 GLfloat lastFrame = 0.0f;
 
 // parameters for simulation time step
-GLfloat timeStep = 0.25f;
+GLfloat timeStep = 0.25f; // 0.25f
 GLfloat lastSimulationUpdate = 0.0f;
 GLfloat simulationFramerate = 1.0f / 60.0f;
 
@@ -140,14 +140,14 @@ GLfloat simulationFramerate = 1.0f / 60.0f;
 TargetFluid targetFluid = LIQUID;
 
 // Level Set parameters
-GLfloat levelSetDampingFactor = 0.7f;
+GLfloat levelSetDampingFactor = 0.1f;
 
 GLfloat levelSetEquilibriumHeight = 0.4f;
 GLfloat levelSetInitialHeight = 0.4f;
 
 // Liquid parameters
-GLfloat gravityAcceleration = 9.0f;
-GLfloat gravityLevelSetThreshold = 50.0f;
+GLfloat gravityAcceleration = 3.0f;
+GLfloat gravityLevelSetThreshold = 1.0f;
 
 // Jacobi pressure solver iterations
 GLuint pressureIterations = 40; // 40
@@ -158,7 +158,7 @@ GLfloat ambientBuoyancy = 0.9f;
 GLfloat ambientWeight = 0.15f;
 
 // Dissipation factors
-GLfloat velocityDissipation = 0.8f; // 0.8f
+GLfloat velocityDissipation = 0.9f; // 0.8f
 GLfloat densityDissipation = 0.99f; // 0.9f
 GLfloat temperatureDissipation = 0.9f; // 0.9f
 
@@ -575,7 +575,7 @@ int main()
             {
                 AddDensity(&dyeShader, &density_slab, &temp_pressure_divergence_slab, force_center, force_radius, -force_radius, GL_TRUE);
 
-                ApplyGravity(*gravityShader, velocity_slab, density_slab, temp_velocity_slab, gravityAcceleration, timeStep / 2, gravityLevelSetThreshold);
+                ApplyGravity(*gravityShader, velocity_slab, density_slab, temp_velocity_slab, gravityAcceleration, timeStep, gravityLevelSetThreshold);
             }
 
 
@@ -596,7 +596,7 @@ int main()
             Jacobi(&jacobiShader, &pressure_slab, &divergence_slab, &obstacle_slab, &temp_pressure_divergence_slab, pressureIterations);
 
             // we apply the pressure projection
-            ApplyPressure(&pressureShader, &velocity_slab, &pressure_slab, &density_slab, &obstacle_slab, &obstacle_velocity_slab, &temp_velocity_slab, targetFluid == LIQUID);
+            ApplyPressure(&pressureShader, &velocity_slab, &pressure_slab, &obstacle_slab, &obstacle_velocity_slab, &temp_velocity_slab);
 
             // reset the state
             EndSimulation();

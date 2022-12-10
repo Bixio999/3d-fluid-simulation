@@ -6,23 +6,9 @@ uniform sampler3D VelocityTexture;
 uniform sampler3D PressureTexture;
 uniform sampler3D ObstacleTexture;
 uniform sampler3D ObstacleVelocityTexture;
-uniform sampler3D LevelSetTexture;
 uniform vec3 InverseSize;
 
-uniform bool isLiquidSimulation;
-
 in float layer;
-
-bool CheckMask(vec3 pos)
-{
-    if (isLiquidSimulation)
-    {
-        // avoid sampling when simulating gas
-        if (texture(LevelSetTexture, pos).r > 0.0)
-            return false;
-    }
-    return true;
-}
 
 void main()
 {
@@ -105,8 +91,7 @@ void main()
         if (length(newVelocity) < 0.0001)
             newVelocity = vec3(0.0);
 
-        if (CheckMask(fragCoord * InverseSize))
-            FragColor = newVelocity;
+        FragColor = newVelocity;
     }
     else
         FragColor = texture(ObstacleVelocityTexture, fragCoord * InverseSize).xyz;
