@@ -140,7 +140,7 @@ GLfloat simulationFramerate = 1.0f / 60.0f;
 TargetFluid targetFluid = LIQUID;
 
 // Level Set parameters
-GLfloat levelSetDampingFactor = 0.1f;
+GLfloat levelSetDampingFactor = 0.2f;
 
 GLfloat levelSetEquilibriumHeight = 0.4f;
 GLfloat levelSetInitialHeight = 0.4f;
@@ -158,7 +158,7 @@ GLfloat ambientBuoyancy = 0.9f;
 GLfloat ambientWeight = 0.15f;
 
 // Dissipation factors
-GLfloat velocityDissipation = 0.9f; // 0.8f
+GLfloat velocityDissipation = 0.99f; // 0.8f
 GLfloat densityDissipation = 0.99f; // 0.9f
 GLfloat temperatureDissipation = 0.9f; // 0.9f
 
@@ -505,13 +505,21 @@ int main()
             bunny.prevModelMatrix = bunny.modelMatrix;
             bunny.modelMatrix = glm::mat4(1.0f);
             // bunnyNormalMatrix = glm::mat3(1.0f);
-            // bunny.modelMatrix = glm::translate(bunny.modelMatrix, glm::vec3(4.0f, 1.0f, 0.0f));
-            bunny.modelMatrix = glm::translate(bunny.modelMatrix, glm::vec3(0.0f, 1.0f, 1.0f));
+            bunny.modelMatrix = glm::translate(bunny.modelMatrix, glm::vec3(4.0f, 1.0f, 0.0f));
+            // bunny.modelMatrix = glm::translate(bunny.modelMatrix, glm::vec3(0.0f, 1.0f, 1.0f));
             bunny.modelMatrix = glm::rotate(bunny.modelMatrix, glm::radians(orientationY), glm::vec3(0.0f, 1.0f, 0.0f));
             bunny.modelMatrix = glm::scale(bunny.modelMatrix, glm::vec3(0.3f, 0.3f, 0.3f));
 
+            // we update the model matrix for the sphere
+            sphere.prevModelMatrix = sphere.modelMatrix;
+            sphere.modelMatrix = glm::mat4(1.0f);
+            // sphereNormalMatrix = glm::mat3(1.0f);
+            sphere.modelMatrix = glm::translate(sphere.modelMatrix, glm::vec3(0.0f, 1.0f, 1.0f));
+            sphere.modelMatrix = glm::rotate(sphere.modelMatrix, glm::radians(orientationY), glm::vec3(0.0f, 1.0f, 0.0f));
+            // sphere.modelMatrix = glm::scale(sphere.modelMatrix, glm::vec3(0.3f, 0.3f, 0.3f));
+
             // we draw the dynamic obstacles in the obstacle buffer
-            DynamicObstacle(stencilObstacleShader, obstacleVelocityShader, obstacle_slab, obstacle_velocity_slab, temp_velocity_slab, bunny, fluidTranslation, fluidScale, simulationFramerate);
+            DynamicObstacle(stencilObstacleShader, obstacleVelocityShader, obstacle_slab, obstacle_velocity_slab, temp_velocity_slab, sphere, fluidTranslation, fluidScale, simulationFramerate);
 
             /////////////////// STEP 2 - UPDATE SIMULATION  //////////////////////////////////////////////////////////////////////////
             // we bind the VAO for the quad and set up rendering
@@ -550,7 +558,7 @@ int main()
             }
             else
             {
-                placeholder_force = glm::vec3(0, -1, 0) * 2.0f;
+                placeholder_force = glm::vec3(1, 0, 0) * 3.0f;
                 force_center = glm::vec3(GRID_WIDTH / 2.0f, GRID_HEIGHT * 0.8f, GRID_DEPTH / 2.0f);
                 force_radius = 3.0f;
             }
@@ -576,6 +584,13 @@ int main()
                 AddDensity(&dyeShader, &density_slab, &temp_pressure_divergence_slab, force_center, force_radius, -force_radius, GL_TRUE);
 
                 ApplyGravity(*gravityShader, velocity_slab, density_slab, temp_velocity_slab, gravityAcceleration, timeStep, gravityLevelSetThreshold);
+
+                force_radius = 5.0f;
+                force_center.x += force_center.x * 0.1f;
+                ApplyExternalForces(&externalForcesShader, &velocity_slab, &temp_velocity_slab, timeStep, placeholder_force, force_center, force_radius);
+                placeholder_force *= -1.0f;
+                force_center.x -= force_center.x * 0.2f;
+                ApplyExternalForces(&externalForcesShader, &velocity_slab, &temp_velocity_slab, timeStep, placeholder_force, force_center, force_radius);
             }
 
 
@@ -821,13 +836,13 @@ void RenderObjects(Shader &shader, Model &planeModel, ObstacleObject &sphere, Ob
     glUniform1f(repeatLocation, repeat);
 
     // we reset to identity at each frame
-    sphere.prevModelMatrix = sphere.modelMatrix;
-    sphere.modelMatrix = glm::mat4(1.0f);
-    sphereNormalMatrix = glm::mat3(1.0f);
-    sphere.modelMatrix = glm::translate(sphere.modelMatrix, glm::vec3(-3.0f, 1.0f, 0.0f));
-    // sphere.modelMatrix = glm::translate(sphere.modelMatrix, glm::vec3(0.0f, 1.0f, 0.0f));
-    sphere.modelMatrix = glm::rotate(sphere.modelMatrix, glm::radians(orientationY), glm::vec3(0.0f, 1.0f, 0.0f));
-    sphere.modelMatrix = glm::scale(sphere.modelMatrix, glm::vec3(0.8f, 0.8f, 0.8f));
+    // sphere.prevModelMatrix = sphere.modelMatrix;
+    // sphere.modelMatrix = glm::mat4(1.0f);
+    // sphereNormalMatrix = glm::mat3(1.0f);
+    // sphere.modelMatrix = glm::translate(sphere.modelMatrix, glm::vec3(-3.0f, 1.0f, 0.0f));
+    // // sphere.modelMatrix = glm::translate(sphere.modelMatrix, glm::vec3(0.0f, 1.0f, 0.0f));
+    // sphere.modelMatrix = glm::rotate(sphere.modelMatrix, glm::radians(orientationY), glm::vec3(0.0f, 1.0f, 0.0f));
+    // sphere.modelMatrix = glm::scale(sphere.modelMatrix, glm::vec3(0.8f, 0.8f, 0.8f));
     sphereNormalMatrix = glm::inverseTranspose(glm::mat3(view*sphere.modelMatrix));
     glUniformMatrix4fv(glGetUniformLocation(shader.Program, "modelMatrix"), 1, GL_FALSE, glm::value_ptr(sphere.modelMatrix));
     glUniformMatrix3fv(glGetUniformLocation(shader.Program, "normalMatrix"), 1, GL_FALSE, glm::value_ptr(sphereNormalMatrix));
