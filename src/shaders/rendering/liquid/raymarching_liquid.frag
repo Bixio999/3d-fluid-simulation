@@ -259,7 +259,7 @@ void main()
     if (length(dir) <= 0.0)
         discard;
 
-    vec3 sampleInterval = 0.33 / grid_size;
+    vec3 sampleInterval = 0.5 / grid_size;
     float t = dot(sampleInterval, abs(dir)) / (length(dir) * length(dir));
     // t /= 2.0;
     float i = t + 0.5 * t * rand(gl_FragCoord.xy);

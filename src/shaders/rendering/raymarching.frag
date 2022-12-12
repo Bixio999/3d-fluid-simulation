@@ -42,6 +42,10 @@ vec3 NearPlaneIntersection(vec3 eyePos, vec3 end)
     // return eyePos + dir * t;
 }
 
+float rand(vec2 co){
+    return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453);
+}
+
 vec3 TextureVoxelClamp(vec3 pos)
 {
     pos *= (grid_size - 1.0);
@@ -157,7 +161,7 @@ void main()
     // float t = 0.5 / grid_size.x;
 
     float sampledDensity = 0;
-    for(float i = 0; i <= 1.0; i += t)
+    for(float i = 0.5 * t * rand(gl_FragCoord.xy); i <= 1.0; i += t)
     {
         vec3 p = start + dir * i;
 
