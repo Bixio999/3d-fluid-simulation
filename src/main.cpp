@@ -167,6 +167,9 @@ GLfloat temperatureDissipation = 0.9f; // 0.9f
 glm::vec3 fluidTranslation = glm::vec3(0.0f, 2.0f, 1.0f);
 GLfloat fluidScale = 2.0f;
 
+// Blur filter parameters
+GLfloat blurRadius = 1.5f;
+
 // rotation angle on Y axis
 GLfloat orientationY = 0.0f;
 // rotation speed on Y axis
@@ -314,6 +317,7 @@ int main()
     Shader raydataFrontShader = Shader("src/shaders/rendering/raydata/raydata.vert", "src/shaders/rendering/raydata/raydata_front.frag");
 
     Shader blendingShader = Shader("src/shaders/rendering/blending/blending.vert", "src/shaders/rendering/blending/blending.frag");
+    // Shader blurShader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/rendering/blur.frag");
 
     // we create the rendering Shader Programs for the requested target fluid
     Shader *renderShader, *levelZeroShader;
@@ -387,23 +391,25 @@ int main()
     else
     {
         // liquid simulation exclusive buffer
-        levelZero_slab = Create2DSlab(GRID_WIDTH, GRID_HEIGHT, 3);
         std::cout << "Created level zero grid = {" << levelZero_slab.fbo << " , " << levelZero_slab.tex << "}" << std::endl;
     }
 
 
-    /////////////////// CREATION OF TEMPORARY BUFFERS FOR THE SIMULATION UPDATE /////////////////////////////////////////
+    /////////////////// CREATION OF TEMPORARY BUFFERS /////////////////////////////////////////
 
     Slab temp_velocity_slab = CreateSlab(GRID_WIDTH, GRID_HEIGHT, GRID_DEPTH, 3);
     std::cout << "Created temp velocity grid = {" << temp_velocity_slab.fbo << " , " << temp_velocity_slab.tex << "}" << std::endl;
     Slab temp_pressure_divergence_slab = CreateSlab(GRID_WIDTH, GRID_HEIGHT, GRID_DEPTH, 1);
     std::cout << "Created temp pressure divergence grid = {" << temp_pressure_divergence_slab.fbo << " , " << temp_pressure_divergence_slab.tex << "}" << std::endl;
 
+    Slab temp_screenSize_slab = Create2DSlab(width, height, 4, false);
+    std::cout << "Created temp screen size grid = {" << temp_screenSize_slab.fbo << " , " << temp_screenSize_slab.tex << "}" << std::endl;
+
     /////////////////// CREATION OF BUFFER FOR THE RAYCASTING RAYDATA TEXTURE /////////////////////////////////////////
 
-    Slab rayDataBack = Create2DSlab(width, height, 4);
+    Slab rayDataBack = Create2DSlab(width, height, 4, false);
     std::cout << "Created raydata back grid = {" << rayDataBack.fbo << " , " << rayDataBack.tex << "}" << std::endl;
-    Slab rayDataFront = Create2DSlab(width, height, 4);
+    Slab rayDataFront = Create2DSlab(width, height, 4, false);
     std::cout << "Created raydata front grid = {" << rayDataFront.fbo << " , " << rayDataFront.tex << "}" << std::endl;
     
     ///////////////////////////////// CREATION OF BUFFERS AND DATA FOR OBSTACLES /////////////////////////////////////////
@@ -450,6 +456,7 @@ int main()
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     /////////////////// CREATION OF SCENE FRAMEBUFFERS /////////////////////////////////////////
+
     Scene scene = CreateScene(width, height);
     std::cout << "Created scene framebuffer = {" << scene.fbo << " , " << scene.colorTex << ", " << scene.depthTex << "}" << std::endl;
 
@@ -560,9 +567,9 @@ int main()
             }
             else
             {
-                placeholder_force = glm::vec3(1, 0, 0) * 3.0f;
+                placeholder_force = glm::vec3(1, 0, 0) * 2.0f;
                 force_center = glm::vec3(GRID_WIDTH / 2.0f, GRID_HEIGHT * 0.8f, GRID_DEPTH / 2.0f);
-                force_radius = 2.0f;
+                force_radius = 3.0f;
             }
 
             // we increase density and temperature based on applied force
@@ -587,7 +594,7 @@ int main()
 
                 ApplyGravity(*gravityShader, velocity_slab, density_slab, temp_velocity_slab, gravityAcceleration, timeStep, gravityLevelSetThreshold);
 
-                force_radius = 4.0f;
+                force_radius = 5.0f;
                 force_center.x += force_center.x * 0.1f;
                 ApplyExternalForces(&externalForcesShader, &velocity_slab, &temp_velocity_slab, timeStep, placeholder_force, force_center, force_radius);
                 placeholder_force *= -1.0f;
@@ -751,6 +758,12 @@ int main()
             // we render the liquid
             RenderLiquid(*renderShader, density_slab, obstacle_slab, rayDataFront, rayDataBack, scene, fluidScene, cubeModel, cubeModelMatrix, view, projection, inverseScreenSize, windowNearPlane, camera.Position, camera.Front, camera.Up, camera.Right, lightDir0, Kd, alpha, F0);
         }
+
+        //////////////////////////////// STEP 3 - BLENDING ////////////////////////////////////////////////
+
+        // we blur the fluid scene to solve the banding effect
+        // Slab fluidSceneSlab  = {fluidScene.fbo, fluidScene.colorTex};
+        // Blur(blurShader, fluidSceneSlab, temp_screenSize_slab, blurRadius, inverseScreenSize);
 
         // we combine the fluid rendering with the scene rendering
         BlendRendering(blendingShader, scene, fluidScene, rayDataBack, inverseScreenSize);

@@ -52,7 +52,7 @@ struct ObstacleObject
 Slab CreateSlab(GLuint width, GLuint height, GLuint depth, GLushort dimensions);
 
 // create slab with a 2d texture
-Slab Create2DSlab(GLuint width, GLuint height, GLushort dimensions);
+Slab Create2DSlab(GLuint width, GLuint height, GLushort dimensions, bool filter);
 
 // create a scene
 Scene CreateScene(GLuint width, GLuint height);
@@ -117,6 +117,8 @@ void RenderLiquid(Shader &renderShader, Slab &levelSet, ObstacleSlab &obstacle, 
 
 // compose the final frame
 void BlendRendering(Shader &blendingShader, Scene &scene, Scene &fluid, Slab &raydataBack, glm::vec2 inverseScreenSize);
+
+void Blur(Shader &blurShader, Slab &source, Slab &dest, GLfloat radius, glm::vec2 inverseScreenSize);
 
 /////////////////////////////////////////////
 

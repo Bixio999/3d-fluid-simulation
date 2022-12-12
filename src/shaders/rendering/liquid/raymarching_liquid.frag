@@ -108,6 +108,10 @@ float interpolate_tricubic_fast(sampler3D tex, vec3 coord)
 	return mix(tex001, tex000, g0.z);  //weigh along the z-direction
 }
 
+float rand(vec2 co){
+    return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453);
+}
+
 vec3 ComputeGradient(vec3 pos)
 {
     vec3 InverseGridSize = 1.0 / grid_size;
@@ -258,8 +262,8 @@ void main()
     vec3 sampleInterval = 0.33 / grid_size;
     float t = dot(sampleInterval, abs(dir)) / (length(dir) * length(dir));
     // t /= 2.0;
-    float i = t;
-    vec3 p = start + dir * i;;
+    float i = t + 0.5 * t * rand(gl_FragCoord.xy);
+    vec3 p = start + dir * i;
 
     float curr = texture(LevelSetTexture, p).x;
     float prev = curr; 

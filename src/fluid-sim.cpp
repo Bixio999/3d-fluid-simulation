@@ -99,7 +99,7 @@ Slab CreateSlab(GLuint width, GLuint height, GLuint depth, GLushort dimensions)
 }
 
 // create slab with a 2d texture
-Slab Create2DSlab(GLuint width, GLuint height, GLushort dimensions)
+Slab Create2DSlab(GLuint width, GLuint height, GLushort dimensions, bool filter)
 {
     GLuint fbo;
     glGenFramebuffers(1, &fbo);
@@ -117,8 +117,16 @@ Slab Create2DSlab(GLuint width, GLuint height, GLushort dimensions)
         default: std::cout << "Invalid number of dimensions for the texture" << std::endl; return {0, 0};
     }
 
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    if (filter)
+    {
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    else
+    {
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    }
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
 
@@ -724,6 +732,35 @@ void BlendRendering(Shader &blendingShader, Scene &scene, Scene &fluid, Slab &ra
     glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_2D, 0);
     glActiveTexture(GL_TEXTURE3); glBindTexture(GL_TEXTURE_2D, 0);
     glActiveTexture(GL_TEXTURE4); glBindTexture(GL_TEXTURE_2D, 0);
+}
+
+void Blur(Shader &blurShader, Slab &source, Slab &dest, GLfloat radius, glm::vec2 inverseScreenSize)
+{
+    blurShader.Use();
+
+    glUniform1f(glGetUniformLocation(blurShader.Program, "radius"), radius);
+    glUniform2fv(glGetUniformLocation(blurShader.Program, "InverseScreenSize"), 1, glm::value_ptr(inverseScreenSize));
+
+    glBindVertexArray(quadVAO);
+
+    for(int i = 0; i < 2; i++)
+    {
+        glBindFramebuffer(GL_FRAMEBUFFER, dest.fbo);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, source.tex);
+        glUniform1i(glGetUniformLocation(blurShader.Program, "SourceTexture"), 0);
+
+        glUniform1i(glGetUniformLocation(blurShader.Program, "axis"), i);
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+        SwapSlabs(&source, &dest);  
+    }
+
+    glBindVertexArray(0);
+    glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 ///////////////////////// OBSTACLE FUNCTIONS /////////////////////////////
