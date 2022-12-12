@@ -252,7 +252,12 @@ void main()
 
     // FragColor = vec4(dir, 1);
 
-    float t = 0.5 / grid_size.x;
+    if (length(dir) <= 0.0)
+        discard;
+
+    vec3 sampleInterval = 0.33 / grid_size;
+    float t = dot(sampleInterval, abs(dir)) / (length(dir) * length(dir));
+    // t /= 2.0;
     float i = t;
     vec3 p = start + dir * i;;
 
@@ -278,6 +283,9 @@ void main()
             surface = p;
             // surface = vec3(i, curr, prev);
         }
+
+        if (surfaceFound && alpha >= 0.8)
+            break;
     }
 
     alpha = clamp(alpha, 0.0, 0.8);
