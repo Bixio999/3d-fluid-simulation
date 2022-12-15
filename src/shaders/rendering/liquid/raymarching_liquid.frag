@@ -256,6 +256,7 @@ void main()
 
     // FragColor = vec4(dir, 1);
 
+
     if (length(dir) <= 0.0)
         discard;
 

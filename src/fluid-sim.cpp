@@ -763,6 +763,37 @@ void Blur(Shader &blurShader, Slab &source, Slab &dest, GLfloat radius, glm::vec
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
+void DeNoise(Shader &deNoiseShader, Slab &source, Slab &dest, GLfloat sigma, GLfloat threshold, GLfloat slider, GLfloat kSigma, glm::vec2 inverseScreenSize)
+{
+    deNoiseShader.Use();
+
+    glBindFramebuffer(GL_FRAMEBUFFER, dest.fbo);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, source.tex);
+    glUniform1i(glGetUniformLocation(deNoiseShader.Program, "imageData"), 0);
+
+    glUniform1f(glGetUniformLocation(deNoiseShader.Program, "uSigma"), sigma);
+    glUniform1f(glGetUniformLocation(deNoiseShader.Program, "uThreshold"), threshold);
+    // glUniform1f(glGetUniformLocation(deNoiseShader.Program, "uSlider"), slider);
+    glUniform1f(glGetUniformLocation(deNoiseShader.Program, "uKSigma"), kSigma);
+    glUniform2fv(glGetUniformLocation(deNoiseShader.Program, "InverseScreenSize"), 1, glm::value_ptr(inverseScreenSize));
+
+    // glUniform1i(glGetUniformLocation(deNoiseShader.Program, "useTest"), GL_FALSE);
+    // glUniform1i(glGetUniformLocation(deNoiseShader.Program, "whichTest"), 0);
+
+    glBindVertexArray(quadVAO);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    SwapSlabs(&source, &dest);
+
+    glBindVertexArray(0);
+    glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+
 ///////////////////////// OBSTACLE FUNCTIONS /////////////////////////////
 
 void BorderObstacle(Shader &borderObstacleShader, Shader &borderObstacleShaderLayered, ObstacleSlab &dest)

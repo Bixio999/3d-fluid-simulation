@@ -120,6 +120,8 @@ void BlendRendering(Shader &blendingShader, Scene &scene, Scene &fluid, Slab &ra
 
 void Blur(Shader &blurShader, Slab &source, Slab &dest, GLfloat radius, glm::vec2 inverseScreenSize);
 
+void DeNoise(Shader &deNoiseShader, Slab &source, Slab &dest, GLfloat sigma, GLfloat threshold, GLfloat slider, GLfloat kSigma, glm::vec2 inverseScreenSize);
+
 /////////////////////////////////////////////
 
 // create the volume border obstacle grid

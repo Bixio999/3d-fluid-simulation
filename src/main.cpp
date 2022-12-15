@@ -168,7 +168,13 @@ glm::vec3 fluidTranslation = glm::vec3(0.0f, 2.0f, 1.0f);
 GLfloat fluidScale = 2.0f;
 
 // Blur filter parameters
-GLfloat blurRadius = 3.0f;
+GLfloat blurRadius = 1.0f;
+
+// DeNoise filter parameters
+GLfloat deNoiseSigma = 7.0f;
+GLfloat deNoiseThreshold = 0.180f;
+GLfloat deNoiseSlider = 0.0f;
+GLfloat deNoiseKSigma = 3.0f;
 
 // rotation angle on Y axis
 GLfloat orientationY = 0.0f;
@@ -318,6 +324,7 @@ int main()
 
     Shader blendingShader = Shader("src/shaders/rendering/blending/blending.vert", "src/shaders/rendering/blending/blending.frag");
     Shader blurShader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/rendering/blur.frag");
+    Shader deNoiseShader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/rendering/glslSmartDeNoise/frag.glsl");
 
     // we create the rendering Shader Programs for the requested target fluid
     Shader *renderShader, *levelZeroShader;
@@ -762,28 +769,32 @@ int main()
         //////////////////////////////// STEP 3 - BLENDING ////////////////////////////////////////////////
 
         // we blur the fluid scene to solve the banding effect
-        // Slab fluidSceneSlab  = {fluidScene.fbo, fluidScene.colorTex};
+        Slab fluidSceneSlab  = {fluidScene.fbo, fluidScene.colorTex};
         // Blur(blurShader, fluidSceneSlab, temp_screenSize_slab, blurRadius, inverseScreenSize);
+
+        DeNoise(deNoiseShader, fluidSceneSlab, temp_screenSize_slab, deNoiseSigma, deNoiseThreshold, deNoiseSlider, deNoiseKSigma, inverseScreenSize);
+        fluidScene.colorTex = fluidSceneSlab.tex;
+        fluidScene.fbo = fluidSceneSlab.fbo;
 
         // we combine the fluid rendering with the scene rendering
         BlendRendering(blendingShader, scene, fluidScene, rayDataBack, inverseScreenSize);
 
         // we render the front faces of the fluid volume
-        glEnable(GL_BLEND);
-        glEnable(GL_CULL_FACE);
+        // glEnable(GL_BLEND);
+        // glEnable(GL_CULL_FACE);
 
-        fillShader.Use();
+        // fillShader.Use();
 
-        glUniformMatrix4fv(glGetUniformLocation(fillShader.Program, "model"), 1, GL_FALSE, glm::value_ptr(glm::scale(cubeModelMatrix, glm::vec3(1.001f, 1.001f, 1.001f))));
-        glUniformMatrix4fv(glGetUniformLocation(fillShader.Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
-        glUniformMatrix4fv(glGetUniformLocation(fillShader.Program, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
-        glUniform4fv(glGetUniformLocation(fillShader.Program, "color"), 1, glm::value_ptr(glm::vec4(1.0f, 1.0f, 1.0f, 0.1f)));
+        // glUniformMatrix4fv(glGetUniformLocation(fillShader.Program, "model"), 1, GL_FALSE, glm::value_ptr(glm::scale(cubeModelMatrix, glm::vec3(1.001f, 1.001f, 1.001f))));
+        // glUniformMatrix4fv(glGetUniformLocation(fillShader.Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
+        // glUniformMatrix4fv(glGetUniformLocation(fillShader.Program, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
+        // glUniform4fv(glGetUniformLocation(fillShader.Program, "color"), 1, glm::value_ptr(glm::vec4(1.0f, 1.0f, 1.0f, 0.1f)));
 
-        glCullFace(GL_BACK);
-        cubeModel.Draw();
+        // glCullFace(GL_BACK);
+        // cubeModel.Draw();
 
-        glDisable(GL_BLEND);
-        glDisable(GL_CULL_FACE);
+        // glDisable(GL_BLEND);
+        // glDisable(GL_CULL_FACE);
 
         // Swapping back and front buffers
         glfwSwapBuffers(window);
