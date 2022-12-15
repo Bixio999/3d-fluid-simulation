@@ -219,7 +219,8 @@ void main()
         F += F0;
 
         // we put everything together for the specular component
-        specular = (F * G2 * D) / (4.0 * NdotV * NdotL);
+        if (NdotV * NdotL > 0.0)
+            specular = (F * G2 * D) / (4.0 * NdotV * NdotL);
 
         // we calculate the shadow value for the fragment
         shadow = Shadow_Calculation();
