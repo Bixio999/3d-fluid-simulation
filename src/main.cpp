@@ -168,7 +168,7 @@ glm::vec3 fluidTranslation = glm::vec3(0.0f, 2.0f, 1.0f);
 GLfloat fluidScale = 2.0f;
 
 // Blur filter parameters
-GLfloat blurRadius = 1.5f;
+GLfloat blurRadius = 3.0f;
 
 // rotation angle on Y axis
 GLfloat orientationY = 0.0f;
@@ -317,7 +317,7 @@ int main()
     Shader raydataFrontShader = Shader("src/shaders/rendering/raydata/raydata.vert", "src/shaders/rendering/raydata/raydata_front.frag");
 
     Shader blendingShader = Shader("src/shaders/rendering/blending/blending.vert", "src/shaders/rendering/blending/blending.frag");
-    // Shader blurShader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/rendering/blur.frag");
+    Shader blurShader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/rendering/blur.frag");
 
     // we create the rendering Shader Programs for the requested target fluid
     Shader *renderShader, *levelZeroShader;

@@ -15,7 +15,7 @@ void main()
     vec2 p = gl_FragCoord.xy * InverseScreenSize;
 
     vec4 pixel = texture(SourceTexture, p);
-    if (pixel.a == 0.0) discard;
+    if (length(pixel.xyz) == 0.0 || pixel.a == 0.0) discard;
 
     vec4 col=vec4(0.0,0.0,0.0,0.0);
 
@@ -30,7 +30,9 @@ void main()
             w = w0 * exp((-x * x) / (2.0 * rr));
 
             temp = texture(SourceTexture, p);
-            if (temp.a == 0.0) temp = pixel;
+            if (length(temp.xyz) == 0.0 || temp.a == 0.0) 
+                temp = pixel;
+                // continue;
 
             col += temp * w; 
         }
@@ -41,8 +43,11 @@ void main()
         for (d = InverseScreenSize.y, y = -radius, p.y += y * d; y <= radius; y++, p.y += d)
         { 
             w = w0 * exp((-y * y) / (2.0 * rr)); 
+
             temp = texture(SourceTexture, p);
-            if (temp.a == 0.0) temp = pixel;
+            if (length(temp.xyz) == 0.0 || temp.a == 0.0) 
+                temp = pixel;
+                // continue;
 
             col += temp * w; 
         }

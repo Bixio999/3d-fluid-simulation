@@ -262,7 +262,7 @@ void main()
     vec3 sampleInterval = 0.5 / grid_size;
     float t = dot(sampleInterval, abs(dir)) / (length(dir) * length(dir));
     // t /= 2.0;
-    float i = t + 0.5 * t * rand(gl_FragCoord.xy);
+    float i = t + t * rand(gl_FragCoord.xy);
     vec3 p = start + dir * i;
 
     float curr = texture(LevelSetTexture, p).x;
@@ -271,9 +271,13 @@ void main()
     bool surfaceFound = false;
     vec3 surface;
 
+    // int j = 0;
+
+    // for(; i <= 1.0 && length(p - start) <= length(dir); i += t * mix(0.7, 1.0, rand(gl_FragCoord.xy + j)))
     for(; i <= 1.0 && length(p - start) <= length(dir); i += t)
     {
         p = start + dir * i;
+        // j++;
 
         // curr = texture(LevelSetTexture, p).x;
         curr = interpolate_tricubic_fast(LevelSetTexture, p);
@@ -328,6 +332,7 @@ void main()
 
         finalColor = vec4(color, 1.0);
         // finalColor = vec4(interpolate_tricubic_fast(LevelSetTexture, surface), 0, 0, 1.0);
+        // finalColor = vec4(vec3(j), 1.0);
     }
 
     FragColor = finalColor;
