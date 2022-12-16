@@ -140,8 +140,8 @@ GLfloat lastSimulationUpdate = 0.0f;
 GLfloat simulationFramerate = 1.0f / 60.0f;
 
 // we define the target for fluid simulation
-TargetFluid targetFluid = LIQUID;
-// TargetFluid targetFluid = GAS;
+// TargetFluid targetFluid = LIQUID;
+TargetFluid targetFluid = GAS;
 
 // Level Set parameters
 GLfloat levelSetDampingFactor = 0.2f; // 0.2f
@@ -356,7 +356,7 @@ int main()
     // we load the images and store them in a vector
     textureID.push_back(LoadTexture("textures/UV_Grid_Sm.png"));
     textureID.push_back(LoadTexture("textures/marble-chess.jpg"));
-    textureID.push_back(LoadTexture("textures/glass.png"));
+    // textureID.push_back(LoadTexture("textures/glass.png"));
 
     // we load the model(s) (code of Model class is in include/utils/model.h)
     // Model cubeModel("models/cube.obj");

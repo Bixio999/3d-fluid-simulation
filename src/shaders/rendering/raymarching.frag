@@ -155,6 +155,9 @@ void main()
 
     // FragColor = vec4(dir, 1);
 
+    if (length(dir) <= 0.0)
+        discard;
+
     vec3 sampleInterval = 0.5 / grid_size;
     float t = dot(sampleInterval, abs(dir)) / (length(dir) * length(dir));
     t /= 2.0;
