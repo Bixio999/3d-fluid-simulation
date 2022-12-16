@@ -13,11 +13,6 @@
 #include <utils/shader.h>
 #include <utils/model.h>
 
-enum TargetFluid {
-    GAS,
-    LIQUID
-};
-
 struct Slab
 {
     GLuint fbo;

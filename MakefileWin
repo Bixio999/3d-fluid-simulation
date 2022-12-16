@@ -31,3 +31,4 @@ all:
 clean :
 	del $(TARGET)
 	del *.obj *.lib *.exp *.ilk *.pdb
+	cd src && del *.obj *.lib *.exp *.ilk *.pdb

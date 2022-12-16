@@ -1,16 +1,26 @@
-#include "ui.h"
-
-// #include <imgui/imgui.h>
 #include "imgui/imgui.h"
 #include "imgui/imgui_impl_glfw.h"
 #include "imgui/imgui_impl_opengl3.h"
 
-void DrawUI()
+void InitFrame()
 {
     // Start the Dear ImGui frame
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
+}
+
+void DrawUI()
+{
+    InitFrame();
+
+    // 1. Show a simple window.
+    // Tip: if we don't call ImGui::Begin()/ImGui::End() the widgets automatically appears in a window called "Debug".
+
+    // ImGui::Begin("Debug");
+    // ImGui::Text("Hello, world!");
+    // ImGui::End();
+    
 
     ImGui::ShowDemoWindow();
 }

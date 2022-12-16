@@ -135,57 +135,11 @@ GLfloat deltaTime = 0.0f;
 GLfloat lastFrame = 0.0f;
 
 // parameters for simulation time step
-GLfloat timeStep = 0.25f; // 0.25f
 GLfloat lastSimulationUpdate = 0.0f;
-GLfloat simulationFramerate = 1.0f / 60.0f;
-
-// we define the target for fluid simulation
-// TargetFluid targetFluid = LIQUID;
-TargetFluid targetFluid = GAS;
-
-// Level Set parameters
-GLfloat levelSetDampingFactor = 0.2f; // 0.2f
-
-GLfloat levelSetEquilibriumHeight = 0.4f;
-GLfloat levelSetInitialHeight = 0.4f;
-
-// Liquid parameters
-GLfloat gravityAcceleration = 3.0f;
-GLfloat gravityLevelSetThreshold = 1.0f;
-
-// Jacobi pressure solver iterations
-GLuint pressureIterations = 40; // 40
-
-// Buoyancy parameters
-GLfloat ambientTemperature = 0.0f;
-GLfloat ambientBuoyancy = 0.9f;
-GLfloat ambientWeight = 0.15f;
-
-// Dissipation factors
-GLfloat velocityDissipation = 0.99f; // 0.8f
-GLfloat densityDissipation = 0.99f; // 0.9f
-GLfloat temperatureDissipation = 0.9f; // 0.9f
-
-// Fluid Volume parameters
-glm::vec3 fluidTranslation = glm::vec3(0.0f, 2.0f, 1.0f);
-GLfloat fluidScale = 2.0f;
-
-// Blur filter parameters
-GLfloat blurRadius = 1.0f;
-
-// DeNoise filter parameters
-GLfloat deNoiseSigma = 7.0f;
-GLfloat deNoiseThreshold = 0.23f;
-GLfloat deNoiseSlider = 0.0f;
-GLfloat deNoiseKSigma = 3.0f;
 
 // Gamemode parameters
 GLboolean mouseLock = GL_FALSE;
 
-// rotation angle on Y axis
-GLfloat orientationY = 0.0f;
-// rotation speed on Y axis
-GLfloat spin_speed = 60.0f;
 // boolean to start/stop animated rotation on Y angle
 GLboolean spinning = GL_TRUE;
 
@@ -1027,6 +981,8 @@ void PrintCurrentShader(int subroutine)
 // If one of the WASD keys is pressed, the camera is moved accordingly (the code is in utils/camera.h)
 void apply_camera_movements()
 {
+    if (mouseLock) return;
+
     if(keys[GLFW_KEY_W])
         camera.ProcessKeyboard(FORWARD, deltaTime);
     if(keys[GLFW_KEY_S])
