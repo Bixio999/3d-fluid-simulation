@@ -90,6 +90,9 @@ positive Z axis points "outside" the screen
 // we include the fluid simulation functions
 #include "fluid-sim.h"
 
+// we include the UI functions
+#include "UI/ui.h"
+
 // dimensions of application's window
 GLuint screenWidth = 1200, screenHeight = 900;
 
@@ -172,9 +175,12 @@ GLfloat blurRadius = 1.0f;
 
 // DeNoise filter parameters
 GLfloat deNoiseSigma = 7.0f;
-GLfloat deNoiseThreshold = 0.180f;
+GLfloat deNoiseThreshold = 0.23f;
 GLfloat deNoiseSlider = 0.0f;
 GLfloat deNoiseKSigma = 3.0f;
+
+// Gamemode parameters
+GLboolean mouseLock = GL_FALSE;
 
 // rotation angle on Y axis
 GLfloat orientationY = 0.0f;
@@ -478,6 +484,9 @@ int main()
     if (targetFluid == LIQUID)
         InitLiquidSimulation(*initLiquidShader, density_slab, levelSetInitialHeight);
 
+    // Create context for ImGui
+    InitUI(window);
+
     // Projection matrix of the camera: FOV angle, aspect ratio, near and far planes
     GLfloat windowNearPlane = 0.1f;
     GLfloat windowFarPlane = 10000.0f;
@@ -497,6 +506,9 @@ int main()
         glfwPollEvents();
         // we apply FPS camera movements
         apply_camera_movements();
+        
+        // Draw the UI
+        DrawUI();
 
         // we update the simulation based on the defined framerate
         if (currentFrame - lastSimulationUpdate >= simulationFramerate)
@@ -772,9 +784,9 @@ int main()
         Slab fluidSceneSlab  = {fluidScene.fbo, fluidScene.colorTex};
         // Blur(blurShader, fluidSceneSlab, temp_screenSize_slab, blurRadius, inverseScreenSize);
 
-        DeNoise(deNoiseShader, fluidSceneSlab, temp_screenSize_slab, deNoiseSigma, deNoiseThreshold, deNoiseSlider, deNoiseKSigma, inverseScreenSize);
-        fluidScene.colorTex = fluidSceneSlab.tex;
-        fluidScene.fbo = fluidSceneSlab.fbo;
+        // DeNoise(deNoiseShader, fluidSceneSlab, temp_screenSize_slab, deNoiseSigma, deNoiseThreshold, deNoiseSlider, deNoiseKSigma, inverseScreenSize);
+        // fluidScene.colorTex = fluidSceneSlab.tex;
+        // fluidScene.fbo = fluidSceneSlab.fbo;
 
         // we combine the fluid rendering with the scene rendering
         BlendRendering(blendingShader, scene, fluidScene, rayDataBack, inverseScreenSize);
@@ -795,6 +807,8 @@ int main()
 
         // glDisable(GL_BLEND);
         // glDisable(GL_CULL_FACE);
+
+        RenderUI();
 
         // Swapping back and front buffers
         glfwSwapBuffers(window);
@@ -1065,6 +1079,35 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
         }
     }
 
+    if (key == GLFW_KEY_RIGHT && (action == GLFW_PRESS || action == GLFW_REPEAT))
+    {
+        spin_speed += 5;
+        std::cout << "Spin speed: " << spin_speed << std::endl;
+        spin_speed = glm::max(spin_speed, 0.0f);
+    }
+
+    if (key == GLFW_KEY_LEFT && (action == GLFW_PRESS || action == GLFW_REPEAT))
+    {
+        spin_speed -= 5;
+        std::cout << "Spin speed: " << spin_speed << std::endl;
+        spin_speed = glm::max(spin_speed, 0.0f);
+    }
+
+    if (key == GLFW_KEY_M && action == GLFW_PRESS)
+    {
+        if (mouseLock)
+        {
+            mouseLock = false;
+            firstMouse = true;
+            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+        }
+        else
+        {
+            mouseLock = true;
+            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+        }
+    }
+
     // we keep trace of the pressed keys
     // with this method, we can manage 2 keys pressed at the same time:
     // many I/O managers often consider only 1 key pressed at the time (the first pressed, until it is released)
@@ -1088,6 +1131,9 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos)
           lastY = ypos;
           firstMouse = false;
       }
+
+      if (mouseLock)
+          return;
 
       // offset of mouse cursor position
       GLfloat xoffset = xpos - lastX;

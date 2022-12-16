@@ -60,7 +60,9 @@ Temporary Items
 
 include/*
 !include/utils
+!include/imgui
 libs
 textures
 notes
 3d-fluid-simulation.code-workspace
+imgui.ini
