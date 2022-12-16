@@ -14,15 +14,13 @@ void DrawUI()
 {
     InitFrame();
 
-    // 1. Show a simple window.
-    // Tip: if we don't call ImGui::Begin()/ImGui::End() the widgets automatically appears in a window called "Debug".
-
-    // ImGui::Begin("Debug");
-    // ImGui::Text("Hello, world!");
-    // ImGui::End();
+    ImGui::Begin("3D Fluid Simulation");                          // Create a window called "Hello, world!" and append into it.
     
+    ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
 
-    ImGui::ShowDemoWindow();
+    ImGui::End();
+
+    // ImGui::ShowDemoWindow();
 }
 
 void RenderUI()
