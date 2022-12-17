@@ -122,6 +122,10 @@ void RenderObjects(Shader &shader, Model &planeModel, ObstacleObject &sphere, Ob
 // load image from disk and create an OpenGL texture
 GLint LoadTexture(const char* path);
 
+// Shaders and data structure initialization functions
+void CreateRenderShader(TargetFluid target);
+void CreateFluidShaders(TargetFluid target);
+
 // we initialize an array of booleans for each keyboard key
 bool keys[1024];
 
@@ -180,6 +184,10 @@ vector<GLint> textureID;
 // UV repetitions
 GLfloat repeat = 1.0;
 
+// Target fluid specific shaders
+Shader *buoyancyShader, *temperatureShader, *initLiquidShader, *dampingLevelSetShader, *gravityShader;
+Shader *renderShader;
+
 /////////////////// MAIN function ///////////////////////
 int main()
 {
@@ -232,7 +240,12 @@ int main()
     // glClearColor(0.26f, 0.46f, 0.98f, 1.0f);
     glClearColor(0,0,0,0);
 
-    if (targetFluid == GAS)
+    ResetParameters();
+
+    TargetFluid currTarget = targetFluid;
+    TargetFluid prevTarget = currTarget;
+
+    if (currTarget == GAS)
         std::cout << "Target fluid: GAS" << std::endl;
     else
     {
@@ -256,20 +269,7 @@ int main()
     Shader fillShader = Shader("src/shaders/rendering/load_proj_vertices.vert", "src/shaders/rendering/fill.frag");
 
     // we create the simulation Shader Programs for the requested target fluid
-    Shader *buoyancyShader, *temperatureShader, *initLiquidShader, *dampingLevelSetShader, *gravityShader;
-    if (targetFluid == GAS)
-    {
-        // we create the Shader Programs for only gas simulation
-        buoyancyShader = new Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom"  ,"src/shaders/simulation/buoyancy.frag");
-        temperatureShader = new Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/simulation/add_temperature.frag");
-    }
-    else
-    {
-        // we create the Shader Programs for only liquid simulation
-        initLiquidShader = new Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/simulation/liquid/fill_levelSet.frag");
-        dampingLevelSetShader = new Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/simulation/liquid/damp_levelSet.frag");
-        gravityShader = new Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/simulation/liquid/add_gravity.frag");
-    }
+    CreateFluidShaders(currTarget);
 
     // we create the Shader Programs for solid-fluid interaction
     Shader borderObstacleShaderLayered = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/obstacles/border.geom","src/shaders/obstacles/border.frag");
@@ -287,19 +287,7 @@ int main()
     Shader deNoiseShader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/rendering/glslSmartDeNoise/frag.glsl");
 
     // we create the rendering Shader Programs for the requested target fluid
-    Shader *renderShader, *levelZeroShader;
-    if (targetFluid == GAS)
-    {
-        // we create the Shader Programs for only gas rendering
-        renderShader = new Shader("src/shaders/rendering/raydata/raydata.vert", "src/shaders/rendering/raymarching.frag");
-    }
-    else
-    {
-        // we create the Shader Programs for only liquid rendering
-        levelZeroShader = new Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/rendering/liquid/level_zero.frag");
-
-        renderShader = new Shader("src/shaders/rendering/raydata/raydata.vert", "src/shaders/rendering/liquid/raymarching_liquid.frag");
-    }
+    CreateRenderShader(currTarget);
 
     // we parse the Shader Program to search for the number and names of the subroutines.
     // the names are placed in the shaders vector
@@ -348,19 +336,13 @@ int main()
     std::cout << "Created density grid = {" << density_slab.fbo << " , " << density_slab.tex << "}" << std::endl;
 
     // we create the buffers for the target fluid
-    Slab temperature_slab, levelZero_slab;
-    if (targetFluid == GAS)
+    Slab temperature_slab;
+    if (currTarget == GAS)
     {
         // gas simulation exclusive buffer
         temperature_slab = CreateSlab(GRID_WIDTH, GRID_HEIGHT, GRID_DEPTH, 1);
         std::cout << "Created temperature grid = {" << temperature_slab.fbo << " , " << temperature_slab.tex << "}" << std::endl;
     }
-    else
-    {
-        // liquid simulation exclusive buffer
-        std::cout << "Created level zero grid = {" << levelZero_slab.fbo << " , " << levelZero_slab.tex << "}" << std::endl;
-    }
-
 
     /////////////////// CREATION OF TEMPORARY BUFFERS /////////////////////////////////////////
 
@@ -432,10 +414,10 @@ int main()
 
     ///////////////////////////////////////////////////////////////////
 
-    // Create shaders for fluid simulation
-    InitSimulation();
+    // Create vertex objects for fluid simulation
+    InitSimulationVAOs();
 
-    if (targetFluid == LIQUID)
+    if (currTarget == LIQUID)
         InitLiquidSimulation(*initLiquidShader, density_slab, levelSetInitialHeight);
 
     // Create context for ImGui
@@ -455,6 +437,47 @@ int main()
         GLfloat currentFrame = glfwGetTime();
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
+
+        // we check if the user has switched the target fluid
+        if (prevTarget != currTarget)
+        {
+            std::cout << "Switching to " << (currTarget == GAS ? "gas" : "liquid") << " simulation" << std::endl;
+
+            // Destroy old fluid context
+            renderShader->Delete();
+
+            if (prevTarget == GAS)
+            {
+                DestroySlab(&temperature_slab);
+
+                temperatureShader->Delete();
+                buoyancyShader->Delete();
+            }
+            else
+            {
+                initLiquidShader->Delete();
+                dampingLevelSetShader->Delete();
+                gravityShader->Delete();
+            }
+            
+            // Reset all simulation slabs
+            ClearSlabs(4, &velocity_slab, &pressure_slab, &divergence_slab, &density_slab);
+
+            // Instantiate the new fluid shaders
+            CreateRenderShader(currTarget);
+            CreateFluidShaders(currTarget);
+
+            if (currTarget == LIQUID)
+            {
+                densityDissipation = 1.0f;
+                InitLiquidSimulation(*initLiquidShader, density_slab, levelSetInitialHeight);
+            }
+            else
+            {
+                densityDissipation = 0.99f;
+                temperature_slab = CreateSlab(GRID_WIDTH, GRID_HEIGHT, GRID_DEPTH, 1);
+            }
+        }
 
         // Check is an I/O event is happening
         glfwPollEvents();
@@ -513,7 +536,7 @@ int main()
             // advect gas density or liquid level set
             AdvectMacCormack(&advectionShader, &macCormackShader, &velocity_slab, &phi1_hat_slab, &phi2_hat_slab, &obstacle_slab, &density_slab, &temp_pressure_divergence_slab, densityDissipation, timeStep);
            
-            if (targetFluid == GAS)
+            if (currTarget == GAS)
             {
                 // advect temperature
                 AdvectMacCormack(&advectionShader, &macCormackShader, &velocity_slab, &phi1_hat_slab, &phi2_hat_slab, &obstacle_slab, &temperature_slab, &temp_pressure_divergence_slab, temperatureDissipation, timeStep);
@@ -532,7 +555,7 @@ int main()
             glm::vec3 force_center;
             float force_radius;
 
-            if (targetFluid == GAS)
+            if (currTarget == GAS)
             {
                 placeholder_force = glm::vec3(0, 0, -1) * 2.0f;
                 force_center = glm::vec3(GRID_WIDTH / 2.0f, GRID_HEIGHT * 0.4f, GRID_DEPTH * 0.7f);
@@ -549,7 +572,7 @@ int main()
             float dyeColor = 1.2f;
             // float dyeColor = placeholder_force.length();
 
-            if (targetFluid == GAS)
+            if (currTarget == GAS)
             {
                 AddDensity(&dyeShader, &density_slab, &temp_pressure_divergence_slab, force_center, force_radius, dyeColor, GL_FALSE);
 
@@ -721,7 +744,7 @@ int main()
 
         //////////////////////////////// STEP 2 - RAYMARCHING ////////////////////////////////////////////////
 
-        if (targetFluid == GAS)
+        if (currTarget == GAS)
         {
             // we render the gas
             RenderGas(*renderShader, cubeModel, cubeModelMatrix, view, projection, rayDataFront, rayDataBack, density_slab, fluidScene, inverseScreenSize, windowNearPlane, camera.Position, camera.Front);
@@ -734,13 +757,25 @@ int main()
 
         //////////////////////////////// STEP 3 - BLENDING ////////////////////////////////////////////////
 
-        // we blur the fluid scene to solve the banding effect
-        Slab fluidSceneSlab  = {fluidScene.fbo, fluidScene.colorTex};
-        // Blur(blurShader, fluidSceneSlab, temp_screenSize_slab, blurRadius, inverseScreenSize);
+        if (currTarget == LIQUID)
+        {
+            // we apply the post-process effects in the fluid scene to solve the banding effect
+            Slab fluidSceneSlab  = {fluidScene.fbo, fluidScene.colorTex};
 
-        // DeNoise(deNoiseShader, fluidSceneSlab, temp_screenSize_slab, deNoiseSigma, deNoiseThreshold, deNoiseSlider, deNoiseKSigma, inverseScreenSize);
-        // fluidScene.colorTex = fluidSceneSlab.tex;
-        // fluidScene.fbo = fluidSceneSlab.fbo;
+            switch (liquidEffect)
+            {
+                case BLUR:
+                    Blur(blurShader, fluidSceneSlab, temp_screenSize_slab, blurRadius, inverseScreenSize);
+                    break;
+                case DENOISE:
+                    DeNoise(deNoiseShader, fluidSceneSlab, temp_screenSize_slab, deNoiseSigma, deNoiseThreshold, deNoiseSlider, deNoiseKSigma, inverseScreenSize);
+                    fluidScene.colorTex = fluidSceneSlab.tex;
+                    fluidScene.fbo = fluidSceneSlab.fbo;
+                    break;
+                default:
+                    break;
+            }
+        }
 
         // we combine the fluid rendering with the scene rendering
         BlendRendering(blendingShader, scene, fluidScene, rayDataBack, inverseScreenSize);
@@ -763,6 +798,9 @@ int main()
         // glDisable(GL_CULL_FACE);
 
         RenderUI();
+
+        prevTarget = currTarget;
+        currTarget = targetFluid;
 
         // Swapping back and front buffers
         glfwSwapBuffers(window);
@@ -1018,7 +1056,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
     // pressing a key number, we change the shader applied to the models
     // if the key is between 1 and 9, we proceed and check if the pressed key corresponds to
     // a valid subroutine
-    if((key >= GLFW_KEY_1 && key <= GLFW_KEY_9) && action == GLFW_PRESS)
+    if((key >= GLFW_KEY_1 && key <= GLFW_KEY_9) && action == GLFW_PRESS && !mouseLock)
     {
         // "1" to "9" -> ASCII codes from 49 to 59
         // we subtract 48 (= ASCII CODE of "0") to have integers from 1 to 9
@@ -1106,6 +1144,33 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos)
 
 }
 
+void CreateRenderShader(TargetFluid target)
+{
+    if (target == GAS)
+    {
+        // we create the Shader Programs for only gas rendering
+        renderShader = new Shader("src/shaders/rendering/raydata/raydata.vert", "src/shaders/rendering/raymarching.frag");
+    }
+    else
+    {
+        // we create the Shader Programs for only liquid rendering
+        renderShader = new Shader("src/shaders/rendering/raydata/raydata.vert", "src/shaders/rendering/liquid/raymarching_liquid.frag");
+    }
+}
 
-
-
+void CreateFluidShaders(TargetFluid target)
+{
+    if (target == GAS)
+    {
+        // we create the Shader Programs for only gas simulation
+        buoyancyShader = new Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom"  ,"src/shaders/simulation/buoyancy.frag");
+        temperatureShader = new Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/simulation/add_temperature.frag");
+    }
+    else
+    {
+        // we create the Shader Programs for only liquid simulation
+        initLiquidShader = new Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/simulation/liquid/fill_levelSet.frag");
+        dampingLevelSetShader = new Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/simulation/liquid/damp_levelSet.frag");
+        gravityShader = new Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/simulation/liquid/add_gravity.frag");
+    }
+}

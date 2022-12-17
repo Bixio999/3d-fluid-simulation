@@ -142,6 +142,27 @@ Slab Create2DSlab(GLuint width, GLuint height, GLushort dimensions, bool filter)
     return {fbo, texture};
 }
 
+void DestroySlab(Slab* slab)
+{
+    glDeleteFramebuffers(1, &slab->fbo);
+    glDeleteTextures(1, &slab->tex);
+}
+
+void ClearSlabs(int nSlabs, ...)
+{
+    va_list slabs;
+    va_start(slabs, nSlabs);
+
+    for (int i = 0; i < nSlabs; i++)
+    {
+        Slab* slab = va_arg(slabs, Slab*);
+        glBindFramebuffer(GL_FRAMEBUFFER, slab->fbo);
+        glClear(GL_COLOR_BUFFER_BIT);
+    }
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
 Scene CreateScene(GLuint width, GLuint height)
 {
     GLuint fbo;
@@ -256,7 +277,7 @@ void CreateBorderVAO()
 }
 
 // initialize the simulation data structures
-void InitSimulation()
+void InitSimulationVAOs()
 {
     // create the quad vao (triangle strip)
     CreateQuadVAO();

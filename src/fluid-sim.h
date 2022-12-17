@@ -49,6 +49,12 @@ Slab CreateSlab(GLuint width, GLuint height, GLuint depth, GLushort dimensions);
 // create slab with a 2d texture
 Slab Create2DSlab(GLuint width, GLuint height, GLushort dimensions, bool filter);
 
+// destroy a simulation grid slab
+void DestroySlab(Slab *slab);
+
+// clear a simulation grid slab
+void ClearSlabs(int nSlabs, ...);
+
 // create a scene
 Scene CreateScene(GLuint width, GLuint height);
 
@@ -58,8 +64,8 @@ void SwapSlabs(Slab *slabA, Slab *slabB);
 // define the simulation grid size
 void SetGridSize(GLuint width, GLuint height, GLuint depth);
 
-// initialize shaders and data structures
-void InitSimulation();
+// initialize data structures
+void InitSimulationVAOs();
 
 // setup vars to start simulation phase
 void BeginSimulation();

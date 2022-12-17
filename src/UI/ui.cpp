@@ -5,53 +5,55 @@
 #include "ui.h"
 
 // parameters for simulation time step
-GLfloat timeStep = 0.25f; // 0.25f
-GLfloat simulationFramerate = 1.0f / 60.0f;
-
+GLfloat timeStep;
+GLfloat simulationFramerate;
 // we define the target for fluid simulation
 // TargetFluid targetFluid = LIQUID;
-TargetFluid targetFluid = GAS;
+TargetFluid targetFluid;
+
+// we define the post-process effect for liquid
+LiquidEffect liquidEffect;
 
 // Level Set parameters
-GLfloat levelSetDampingFactor = 0.2f; // 0.2f
+GLfloat levelSetDampingFactor;
 
-GLfloat levelSetEquilibriumHeight = 0.4f;
-GLfloat levelSetInitialHeight = 0.4f;
+GLfloat levelSetEquilibriumHeight;
+GLfloat levelSetInitialHeight;
 
 // Liquid parameters
-GLfloat gravityAcceleration = 3.0f;
-GLfloat gravityLevelSetThreshold = 1.0f;
+GLfloat gravityAcceleration;
+GLfloat gravityLevelSetThreshold;
 
 // Jacobi pressure solver iterations
-GLuint pressureIterations = 40; // 40
+GLuint pressureIterations;
 
 // Buoyancy parameters
-GLfloat ambientTemperature = 0.0f;
-GLfloat ambientBuoyancy = 0.9f;
-GLfloat ambientWeight = 0.15f;
+GLfloat ambientTemperature;
+GLfloat ambientBuoyancy;
+GLfloat ambientWeight;
 
 // Dissipation factors
-GLfloat velocityDissipation = 0.99f; // 0.8f
-GLfloat densityDissipation = 0.99f; // 0.9f
-GLfloat temperatureDissipation = 0.9f; // 0.9f
+GLfloat velocityDissipation;
+GLfloat densityDissipation;
+GLfloat temperatureDissipation;
 
 // Fluid Volume parameters
-glm::vec3 fluidTranslation = glm::vec3(0.0f, 2.0f, 1.0f);
-GLfloat fluidScale = 2.0f;
+glm::vec3 fluidTranslation;
+GLfloat fluidScale;
 
 // Blur filter parameters
-GLfloat blurRadius = 1.0f;
+GLfloat blurRadius;
 
 // DeNoise filter parameters
-GLfloat deNoiseSigma = 7.0f;
-GLfloat deNoiseThreshold = 0.23f;
-GLfloat deNoiseSlider = 0.0f;
-GLfloat deNoiseKSigma = 3.0f;
+GLfloat deNoiseSigma;
+GLfloat deNoiseThreshold;
+GLfloat deNoiseSlider;
+GLfloat deNoiseKSigma;
 
 // rotation angle on Y axis
-GLfloat orientationY = 0.0f;
+GLfloat orientationY;
 // rotation speed on Y axis
-GLfloat spin_speed = 60.0f;
+GLfloat spin_speed;
 
 void InitFrame()
 {
@@ -68,8 +70,11 @@ void ResetParameters()
     simulationFramerate = 1.0f / 60.0f;
 
     // we define the target for fluid simulation
-    // TargetFluid targetFluid = LIQUID;
-    targetFluid = GAS;
+    targetFluid = LIQUID;
+    // targetFluid = GAS;
+
+    // we define the post-process effect for liquid
+    liquidEffect = NONE;
 
     // Level Set parameters
     levelSetDampingFactor = 0.2f; // 0.2f
@@ -91,7 +96,7 @@ void ResetParameters()
 
     // Dissipation factors
     velocityDissipation = 0.99f; // 0.8f
-    densityDissipation = 0.99f; // 0.9f
+    densityDissipation = targetFluid == GAS ? 0.99f : 1.0f; // 0.9f
     temperatureDissipation = 0.9f; // 0.9f
 
     // Fluid Volume parameters
@@ -164,18 +169,20 @@ void ShowLiquidParameters()
     if (ImGui::TreeNode("Post-process effect"))
     {
         const char* items[] = {"None", "Blur", "DeNoise"};
-        static int item_current = 0;
-        ImGui::Combo("Post-process effect", &item_current, items, IM_ARRAYSIZE(items));
+        // static int item_current = 0;
+        ImGui::Combo("Post-process effect", (int*) &liquidEffect, items, IM_ARRAYSIZE(items));
 
-        switch (item_current)
+        switch (liquidEffect)
         {
-            case 1: // Blur
+            case BLUR: // Blur
                 ImGui::SliderFloat("Blur Radius", &blurRadius, 0.0f, 10.0f);
                 break;
-            case 2: // DeNoise
+            case DENOISE: // DeNoise
                 ImGui::SliderFloat("DeNoise Sigma", &deNoiseSigma, 0.0f, 10.0f);
                 ImGui::SliderFloat("DeNoise Threshold", &deNoiseThreshold, 0.0f, 10.0f);
                 ImGui::SliderFloat("DeNoise K", &deNoiseKSigma, 0.0f, 10.0f);
+                break;
+            default:
                 break;
         }
 

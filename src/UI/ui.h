@@ -18,12 +18,21 @@ enum TargetFluid {
     LIQUID
 };
 
+enum LiquidEffect {
+    NONE,
+    BLUR,
+    DENOISE
+};
+
 // parameters for simulation time step
 extern GLfloat timeStep;
 extern GLfloat simulationFramerate;
 // we define the target for fluid simulation
 // TargetFluid targetFluid = LIQUID;
 extern TargetFluid targetFluid;
+
+// we define the post-process effect for liquid
+extern LiquidEffect liquidEffect;
 
 // Level Set parameters
 extern GLfloat levelSetDampingFactor;
@@ -77,3 +86,5 @@ void RenderUI();
 void CollapseUI();
 
 void ExpandUI();
+
+void ResetParameters();
