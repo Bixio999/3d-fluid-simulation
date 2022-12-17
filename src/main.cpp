@@ -1055,11 +1055,13 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
         {
             mouseLock = false;
             firstMouse = true;
+            CollapseUI();
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
         }
         else
         {
             mouseLock = true;
+            ExpandUI();
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
         }
     }

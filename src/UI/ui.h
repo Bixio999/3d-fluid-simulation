@@ -19,53 +19,52 @@ enum TargetFluid {
 };
 
 // parameters for simulation time step
-extern GLfloat timeStep = 0.25f; // 0.25f
-extern GLfloat simulationFramerate = 1.0f / 60.0f;
-
+extern GLfloat timeStep;
+extern GLfloat simulationFramerate;
 // we define the target for fluid simulation
 // TargetFluid targetFluid = LIQUID;
-extern TargetFluid targetFluid = GAS;
+extern TargetFluid targetFluid;
 
 // Level Set parameters
-extern GLfloat levelSetDampingFactor = 0.2f; // 0.2f
+extern GLfloat levelSetDampingFactor;
 
-extern GLfloat levelSetEquilibriumHeight = 0.4f;
-extern GLfloat levelSetInitialHeight = 0.4f;
+extern GLfloat levelSetEquilibriumHeight;
+extern GLfloat levelSetInitialHeight;
 
 // Liquid parameters
-extern GLfloat gravityAcceleration = 3.0f;
-extern GLfloat gravityLevelSetThreshold = 1.0f;
+extern GLfloat gravityAcceleration;
+extern GLfloat gravityLevelSetThreshold;
 
 // Jacobi pressure solver iterations
-extern GLuint pressureIterations = 40; // 40
+extern GLuint pressureIterations;
 
 // Buoyancy parameters
-extern GLfloat ambientTemperature = 0.0f;
-extern GLfloat ambientBuoyancy = 0.9f;
-extern GLfloat ambientWeight = 0.15f;
+extern GLfloat ambientTemperature;
+extern GLfloat ambientBuoyancy;
+extern GLfloat ambientWeight;
 
 // Dissipation factors
-extern GLfloat velocityDissipation = 0.99f; // 0.8f
-extern GLfloat densityDissipation = 0.99f; // 0.9f
-extern GLfloat temperatureDissipation = 0.9f; // 0.9f
+extern GLfloat velocityDissipation;
+extern GLfloat densityDissipation;
+extern GLfloat temperatureDissipation;
 
 // Fluid Volume parameters
-extern glm::vec3 fluidTranslation = glm::vec3(0.0f, 2.0f, 1.0f);
-extern GLfloat fluidScale = 2.0f;
+extern glm::vec3 fluidTranslation;
+extern GLfloat fluidScale;
 
 // Blur filter parameters
-extern GLfloat blurRadius = 1.0f;
+extern GLfloat blurRadius;
 
 // DeNoise filter parameters
-extern GLfloat deNoiseSigma = 7.0f;
-extern GLfloat deNoiseThreshold = 0.23f;
-extern GLfloat deNoiseSlider = 0.0f;
-extern GLfloat deNoiseKSigma = 3.0f;
+extern GLfloat deNoiseSigma;
+extern GLfloat deNoiseThreshold;
+extern GLfloat deNoiseSlider;
+extern GLfloat deNoiseKSigma;
 
 // rotation angle on Y axis
-extern GLfloat orientationY = 0.0f;
+extern GLfloat orientationY;
 // rotation speed on Y axis
-extern GLfloat spin_speed = 60.0f;
+extern GLfloat spin_speed;
 
 /////////////////////////
 
@@ -74,3 +73,7 @@ void DrawUI();
 void InitUI(GLFWwindow* window);
 
 void RenderUI();
+
+void CollapseUI();
+
+void ExpandUI();

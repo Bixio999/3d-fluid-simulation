@@ -25,7 +25,7 @@ CXXFLAGS  = -g -O0 -x c++ -mmacosx-version-min=11.1 -Wall -Wno-invalid-offsetof 
 # linker flags:
 LDFLAGS = -L$(LDIR) -lglfw3 -lassimp -lz -lminizip -lkubazip -lbz2d -lIrrlicht -lpoly2tri -lpolyclipping -lturbojpeg -lpng16d -lpugixml $(MACFW)
 
-SOURCES = ../include/glad/glad.c fluid-sim.cpp main.cpp ../include/imgui/*.cpp
+SOURCES = ../include/glad/glad.c fluid-sim.cpp main.cpp ../include/imgui/*.cpp UI/ui.cpp
 
 
 TARGET = $(FILENAME).out
