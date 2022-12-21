@@ -40,7 +40,8 @@ struct ObstacleObject
 {
     glm::mat4 modelMatrix;
     glm::mat4 prevModelMatrix;
-    Model objectModel;
+    Model* objectModel;
+    Model* lowPolyModel;
 };
 
 // create a simulation grid slab

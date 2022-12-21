@@ -117,7 +117,7 @@ void SetupShader(int shader_program);
 void PrintCurrentShader(int subroutine);
 
 // in this application, we have isolated the models rendering using a function, which will be called in each rendering step
-void RenderObjects(Shader &shader, Model &planeModel, ObstacleObject &sphere, ObstacleObject &bunny, Model &cubeModel, GLint render_pass, GLuint depthMap);
+void RenderObjects(Shader &shader, Model &planeModel, ObstacleObject &sphere, ObstacleObject &bunny, ObstacleObject &babyYoda, GLint render_pass, GLuint depthMap);
 
 // load image from disk and create an OpenGL texture
 GLint LoadTexture(const char* path);
@@ -164,6 +164,8 @@ glm::mat4 planeModelMatrix = glm::mat4(1.0f);
 glm::mat3 planeNormalMatrix = glm::mat3(1.0f);
 glm::mat4 fluidModelMatrix = glm::mat4(1.0f);
 glm::mat3 fluidNormalMatrix = glm::mat3(1.0f);
+// glm::mat4 babyyodaModelMatrix = glm::mat4(1.0f);
+glm::mat3 babyyodaNormalMatrix = glm::mat3(1.0f);
 
 // we create a camera. We pass the initial position as a paramenter to the constructor. The last boolean tells if we want a camera "anchored" to the ground
 Camera camera(glm::vec3(0.0f, 0.0f, 7.0f), GL_FALSE);
@@ -312,8 +314,13 @@ int main()
 
     /////////////////// CREATION OF OBSTACLES /////////////////////////////////////////////////////////////
 
-    ObstacleObject bunny = {glm::mat4(1.0f), glm::mat4(1.0f), Model("models/bunny_lp.obj")};
-    ObstacleObject sphere = {glm::mat4(1.0f), glm::mat4(1.0f), Model("models/sphere.obj")};
+    Model* m = new Model("models/bunny_lp.obj");
+    ObstacleObject bunny = {glm::mat4(1.0f), glm::mat4(1.0f), m, m};
+
+    m = new Model("models/sphere.obj");
+    ObstacleObject sphere = {glm::mat4(1.0f), glm::mat4(1.0f), m, m};
+    
+    ObstacleObject babyYoda = {glm::mat4(1.0f), glm::mat4(1.0f), new Model("models/babyyoda.obj"), new Model("models/low-poly_babyyoda.obj")};
 
     /////////////////// CREATION OF BUFFERS FOR THE SIMULATION GRID /////////////////////////////////////////
     // Grid dimensions
@@ -514,8 +521,8 @@ int main()
             bunny.prevModelMatrix = bunny.modelMatrix;
             bunny.modelMatrix = glm::mat4(1.0f);
             // bunnyNormalMatrix = glm::mat3(1.0f);
-            // bunny.modelMatrix = glm::translate(bunny.modelMatrix, glm::vec3(4.0f, 1.0f, 0.0f));
-            bunny.modelMatrix = glm::translate(bunny.modelMatrix, glm::vec3(0.0f, 1.0f, 1.0f));
+            bunny.modelMatrix = glm::translate(bunny.modelMatrix, glm::vec3(4.0f, 1.0f, 0.0f));
+            // bunny.modelMatrix = glm::translate(bunny.modelMatrix, glm::vec3(0.0f, 1.0f, 1.0f));
             bunny.modelMatrix = glm::rotate(bunny.modelMatrix, glm::radians(orientationY), glm::vec3(0.0f, 1.0f, 0.0f));
             bunny.modelMatrix = glm::scale(bunny.modelMatrix, glm::vec3(0.3f, 0.3f, 0.3f));
 
@@ -528,8 +535,16 @@ int main()
             sphere.modelMatrix = glm::rotate(sphere.modelMatrix, glm::radians(orientationY), glm::vec3(0.0f, 1.0f, 0.0f));
             // sphere.modelMatrix = glm::scale(sphere.modelMatrix, glm::vec3(0.3f, 0.3f, 0.3f));
 
+            // we update the matrix for baby yoda
+            babyYoda.prevModelMatrix = babyYoda.modelMatrix;
+            babyYoda.modelMatrix = glm::mat4(1.0f);
+            // babyYodaNormalMatrix = glm::mat3(1.0f);
+            babyYoda.modelMatrix = glm::translate(babyYoda.modelMatrix, glm::vec3(0.0f, 1.0f, 1.0f));
+            babyYoda.modelMatrix = glm::rotate(babyYoda.modelMatrix, glm::radians(orientationY), glm::vec3(0.0f, 1.0f, 0.0f));
+            babyYoda.modelMatrix = glm::scale(babyYoda.modelMatrix, glm::vec3(0.3f, 0.3f, 0.3f));
+
             // we draw the dynamic obstacles in the obstacle buffer
-            DynamicObstacle(stencilObstacleShader, obstacleVelocityShader, obstacle_slab, obstacle_velocity_slab, temp_velocity_slab, bunny, fluidTranslation, fluidScale, simulationFramerate);
+            DynamicObstacle(stencilObstacleShader, obstacleVelocityShader, obstacle_slab, obstacle_velocity_slab, temp_velocity_slab, babyYoda, fluidTranslation, fluidScale, simulationFramerate);
 
             /////////////////// STEP 2 - UPDATE SIMULATION  //////////////////////////////////////////////////////////////////////////
             // we bind the VAO for the quad and set up rendering
@@ -681,7 +696,7 @@ int main()
         glClear(GL_DEPTH_BUFFER_BIT);
 
         // we render the scene, using the shadow shader
-        RenderObjects(shadow_shader, planeModel, sphere, bunny, cubeModel, SHADOWMAP, depthMap);
+        RenderObjects(shadow_shader, planeModel, sphere, bunny, babyYoda, SHADOWMAP, depthMap);
 
         // /////////////////// STEP 2 - SCENE RENDERING FROM CAMERA ////////////////////////////////////////////////
 
@@ -737,7 +752,7 @@ int main()
         glUniform1f(f0Location, F0);
 
         // we render the scene
-        RenderObjects(illumination_shader, planeModel, sphere, bunny, cubeModel, RENDER, depthMap);
+        RenderObjects(illumination_shader, planeModel, sphere, bunny, babyYoda, RENDER, depthMap);
 
         // setup fluid volume matrices
         // cubeModelMatrix = glm::mat4(1.0f);
@@ -850,7 +865,7 @@ int main()
 
 //////////////////////////////////////////
 // we render the objects. We pass also the current rendering step, and the depth map generated in the first step, which is used by the shaders of the second step
-void RenderObjects(Shader &shader, Model &planeModel, ObstacleObject &sphere, ObstacleObject &bunny, Model &cubeModel, GLint render_pass, GLuint depthMap)
+void RenderObjects(Shader &shader, Model &planeModel, ObstacleObject &sphere, ObstacleObject &bunny, ObstacleObject &babyYoda, GLint render_pass, GLuint depthMap)
 {
     // For the second rendering step -> we pass the shadow map to the shaders
     if (render_pass==RENDER)
@@ -912,7 +927,7 @@ void RenderObjects(Shader &shader, Model &planeModel, ObstacleObject &sphere, Ob
     glUniformMatrix3fv(glGetUniformLocation(shader.Program, "normalMatrix"), 1, GL_FALSE, glm::value_ptr(sphereNormalMatrix));
 
     // we render the sphere
-    sphere.objectModel.Draw();
+    sphere.objectModel->Draw();
 
 
     // BUNNY
@@ -929,7 +944,7 @@ void RenderObjects(Shader &shader, Model &planeModel, ObstacleObject &sphere, Ob
     glUniformMatrix3fv(glGetUniformLocation(shader.Program, "normalMatrix"), 1, GL_FALSE, glm::value_ptr(bunnyNormalMatrix));
 
     // we render the bunny
-    bunny.objectModel.Draw();
+    bunny.objectModel->Draw();
 
     // // CUBE
     // // we reset to identity at each frame
@@ -950,6 +965,13 @@ void RenderObjects(Shader &shader, Model &planeModel, ObstacleObject &sphere, Ob
 
     // // // we render the cube
     // cubeModel.Draw();
+
+    // BABY YODA
+    babyyodaNormalMatrix = glm::inverseTranspose(view * babyYoda.modelMatrix);
+    glUniformMatrix4fv(glGetUniformLocation(shader.Program, "modelMatrix"), 1, GL_FALSE, glm::value_ptr(babyYoda.modelMatrix));
+    glUniformMatrix3fv(glGetUniformLocation(shader.Program, "normalMatrix"), 1, GL_FALSE, glm::value_ptr(babyyodaNormalMatrix));
+
+    babyYoda.objectModel->Draw();
 
     glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, 0);
     glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_2D, 0);

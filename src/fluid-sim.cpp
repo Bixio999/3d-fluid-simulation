@@ -1037,17 +1037,17 @@ void DynamicObstaclePosition(Shader &stencilObstacleShader, ObstacleSlab &dest, 
     glUniform4fv(glGetUniformLocation(stencilObstacleShader.Program, "color"), 1, glm::value_ptr(glm::vec4(0.0f)));
 
     glCullFace(GL_FRONT);
-    obstacle.objectModel.DrawInstanced(GRID_DEPTH);
+    obstacle.lowPolyModel->DrawInstanced(GRID_DEPTH);
 
     glCullFace(GL_BACK);
-    obstacle.objectModel.DrawInstanced(GRID_DEPTH);
+    obstacle.lowPolyModel->DrawInstanced(GRID_DEPTH);
 
     glStencilFunc(GL_NOTEQUAL, 0, 0xFF);
     glStencilMask(0x00);
 
     glDisable(GL_CULL_FACE);
     glUniform4fv(glGetUniformLocation(stencilObstacleShader.Program, "color"), 1, glm::value_ptr(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)));
-    obstacle.objectModel.DrawInstanced(GRID_DEPTH);
+    obstacle.lowPolyModel->DrawInstanced(GRID_DEPTH);
 
     glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
     glStencilMask(0xFF);
@@ -1083,7 +1083,7 @@ void DynamicObstacleVelocity(Shader &obstacleVelocityShader, Slab &obstacle_velo
     glUniform3fv(glGetUniformLocation(obstacleVelocityShader.Program, "firstLayerPoint"), 1, glm::value_ptr(firstLayerPoint));
     glUniform3fv(glGetUniformLocation(obstacleVelocityShader.Program, "layersDir"), 1, glm::value_ptr(layersDir));
 
-    obstacle.objectModel.DrawInstanced(GRID_DEPTH);
+    obstacle.lowPolyModel->DrawInstanced(GRID_DEPTH);
 
     glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_3D, 0);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
