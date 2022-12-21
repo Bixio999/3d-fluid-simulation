@@ -4,9 +4,12 @@
 
 #include "ui.h"
 
+//////////////////////////
+
 // parameters for simulation time step
 GLfloat timeStep;
 GLfloat simulationFramerate;
+
 // we define the target for fluid simulation
 // TargetFluid targetFluid = LIQUID;
 TargetFluid targetFluid;
@@ -54,6 +57,12 @@ GLfloat deNoiseKSigma;
 GLfloat orientationY;
 // rotation speed on Y axis
 GLfloat spin_speed;
+
+// Custom fluid interaction
+vector<Force> externalForces = vector<Force>();
+vector<FluidQuantity> fluidQuantities = vector<FluidQuantity>();
+
+//////////////////////////
 
 void InitFrame()
 {
@@ -116,6 +125,46 @@ void ResetParameters()
     // orientationY = 0.0f;
     // rotation speed on Y axis
     spin_speed = 60.0f;
+}
+
+void ResetForcesAndDyes(TargetFluid target)
+{
+    externalForces.clear();
+    fluidQuantities.clear();
+
+    // we define the default static external forces and fluid quantities
+    
+    if (target == GAS)
+    {
+        // we add the forces for gas simulation
+        externalForces.push_back(Force {glm::vec3(GRID_WIDTH / 2.0f, GRID_HEIGHT * 0.4f, GRID_DEPTH * 0.7f), 
+                                        glm::vec3(0,0,-1), 
+                                        20.0f,
+                                        2.0f});
+
+        // we add the fluid for gas simulation
+        fluidQuantities.push_back(FluidQuantity {glm::vec3(GRID_WIDTH / 2.0f, GRID_HEIGHT * 0.4f, GRID_DEPTH * 0.7f), 
+                                        5.0f});
+    }
+    else
+    {
+        // we add the forces for liquid simulation
+        glm::vec3 v = glm::vec3(GRID_WIDTH / 2.0f, GRID_HEIGHT * 0.8f, GRID_DEPTH / 2.0f);
+        v.x += v.x * 0.1f;
+        externalForces.push_back(Force {v,
+                                        glm::vec3(1,0,0), 
+                                        5.0f,
+                                        2.0f});
+        v.x -= v.x * 0.2f;
+        externalForces.push_back(Force {glm::vec3(v),
+                                        glm::vec3(-1,0,0), 
+                                        5.0f,
+                                        2.0f});
+
+        // we add the fluid for liquid simulation
+        fluidQuantities.push_back(FluidQuantity {glm::vec3(GRID_WIDTH / 2.0f, GRID_HEIGHT * 0.8f, GRID_DEPTH / 2.0f), 
+                                        3.0f});
+    }
 }
 
 void ShowSimulationProperties()
@@ -212,6 +261,76 @@ void ShowGasParameters()
     }
 }
 
+void ShowStaticForceParameters()
+{
+    if (!ImGui::CollapsingHeader("Static Force Parameters"))
+        return;
+
+    for (int i = 0; i < externalForces.size(); i++)
+    {
+        std::string s = "Force " + std::to_string(i);
+        if (ImGui::TreeNode(s.c_str()))
+        {
+            // glm::vec3 v = externalForces[i].position;
+            // float val[3] = {v.x, v.y, v.z};
+            ImGui::SliderFloat3("Position", glm::value_ptr(externalForces[i].position), 0.0f, GRID_WIDTH);
+            // externalForces[i].position = glm::vec3(val[0], val[1], val[2]);
+
+            // v = externalForces[i].direction;
+            ImGui::SliderFloat3("Direction", glm::value_ptr(externalForces[i].direction), -1.0, 1.0f);
+
+            ImGui::SliderFloat("Strength", &(externalForces[i].strength), 0.0f, 10.0f);
+            ImGui::SliderFloat("Radius", &(externalForces[i].radius), 0.0f, 10.0f);
+
+            if (ImGui::Button("Delete"))
+            {
+                // Force* f = &(externalForces[i]);
+                externalForces.erase(externalForces.begin() + i);
+                // delete f;
+            }
+
+            ImGui::TreePop();
+        }
+    }
+
+    if (ImGui::Button("Add Force"))
+    {
+        externalForces.push_back({ glm::vec3(0.0f), glm::vec3(0.0f), 0.0f, 0.0f });
+    }
+}
+
+void ShowStaticFluidDyeParameter()
+{
+    if (!ImGui::CollapsingHeader("Static Fluid Dye Parameters"))
+        return;
+
+    for (int i = 0; i < fluidQuantities.size(); i++)
+    {
+        std::string s = "Dye " + std::to_string(i);
+        if (ImGui::TreeNode(s.c_str()))
+        {
+            // glm::vec3 v = fluidQuantities[i].position;
+            ImGui::SliderFloat3("Position", glm::value_ptr(fluidQuantities[i].position), 0.0f, GRID_WIDTH);
+
+            ImGui::SliderFloat("Radius", &(fluidQuantities[i].radius), 0.0f, 10.0f);
+
+            if (ImGui::Button("Delete"))
+            {
+                // FluidQuantity* q = &(fluidQuantities[i]);
+                fluidQuantities.erase(fluidQuantities.begin() + i);
+                // delete q;
+            }
+
+            ImGui::TreePop();
+        }
+    }
+
+    if (ImGui::Button("Add Fluid"))
+    {
+        fluidQuantities.push_back(FluidQuantity { glm::vec3(0.0f), 0.0f});
+    }
+}
+
 void CustomUI()
 {
     const ImGuiViewport* main_viewport = ImGui::GetMainViewport();
@@ -235,14 +354,15 @@ void CustomUI()
     ImGui::RadioButton("Gas",(int*) &targetFluid, 0); ImGui::SameLine();
     ImGui::RadioButton("Liquid",(int*) &targetFluid, 1); 
 
-    ImGui::Separator();
+    ImGui::Separator(); ImGui::Spacing();
 
     if (ImGui::Button("Reset"))
     {
         ResetParameters();
-    }
+    } ImGui::SameLine();
 
-    ImGui::Separator();
+    if (ImGui::Button("Reset forces and dyes"))
+        ResetForcesAndDyes(targetFluid);
 
     ////////////////////////////////
 
@@ -254,6 +374,12 @@ void CustomUI()
         ShowGasParameters();
     else
         ShowLiquidParameters();
+
+    ////////////////////////////////
+
+    ShowStaticForceParameters();
+
+    ShowStaticFluidDyeParameter();
 
     ////////////////////////////////
 

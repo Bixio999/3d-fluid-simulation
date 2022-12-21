@@ -24,6 +24,24 @@ enum LiquidEffect {
     DENOISE
 };
 
+struct Force
+{
+    glm::vec3 position;
+    glm::vec3 direction;
+    GLfloat radius;
+    GLfloat strength;
+};
+
+struct FluidQuantity
+{
+    glm::vec3 position;
+    GLfloat radius;
+};
+
+const GLuint GRID_WIDTH = 100, GRID_HEIGHT = 100, GRID_DEPTH = 100;
+
+//////////////////////////
+
 // parameters for simulation time step
 extern GLfloat timeStep;
 extern GLfloat simulationFramerate;
@@ -75,6 +93,10 @@ extern GLfloat orientationY;
 // rotation speed on Y axis
 extern GLfloat spin_speed;
 
+// Custom fluid interaction
+extern vector<Force> externalForces;
+extern vector<FluidQuantity> fluidQuantities;
+
 /////////////////////////
 
 void DrawUI();
@@ -88,3 +110,5 @@ void CollapseUI();
 void ExpandUI();
 
 void ResetParameters();
+
+void ResetForcesAndDyes(TargetFluid target);

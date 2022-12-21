@@ -251,7 +251,10 @@ int main()
     {
         std::cout << "Target fluid: LIQUID" << std::endl;
         densityDissipation = 1.0f;
+    
     }
+
+    ResetForcesAndDyes(currTarget);
 
     // we create the Shader Program for the creation of the shadow map
     Shader shadow_shader("src/shaders/19_shadowmap.vert", "src/shaders/20_shadowmap.frag");
@@ -315,7 +318,7 @@ int main()
     /////////////////// CREATION OF BUFFERS FOR THE SIMULATION GRID /////////////////////////////////////////
     // Grid dimensions
     // const GLuint GRID_WIDTH = 200, GRID_HEIGHT = 200, GRID_DEPTH = 200;
-    const GLuint GRID_WIDTH = 100, GRID_HEIGHT = 100, GRID_DEPTH = 100;
+    // const GLuint GRID_WIDTH = 100, GRID_HEIGHT = 100, GRID_DEPTH = 100;
 
     SetGridSize(GRID_WIDTH, GRID_HEIGHT, GRID_DEPTH);
 
@@ -477,6 +480,8 @@ int main()
                 densityDissipation = 0.99f;
                 temperature_slab = CreateSlab(GRID_WIDTH, GRID_HEIGHT, GRID_DEPTH, 1);
             }
+
+            ResetForcesAndDyes(currTarget);
         }
 
         // Check is an I/O event is happening
@@ -551,22 +556,22 @@ int main()
             }
 
             // we apply the external forces and splat density and temperature
-            glm::vec3 placeholder_force;
-            glm::vec3 force_center;
-            float force_radius;
+            // glm::vec3 placeholder_force;
+            // glm::vec3 force_center;
+            // float force_radius;
 
-            if (currTarget == GAS)
-            {
-                placeholder_force = glm::vec3(0, 0, -1) * 2.0f;
-                force_center = glm::vec3(GRID_WIDTH / 2.0f, GRID_HEIGHT * 0.4f, GRID_DEPTH * 0.7f);
-                force_radius = 5.0f;
-            }
-            else
-            {
-                placeholder_force = glm::vec3(1, 0, 0) * 2.0f;
-                force_center = glm::vec3(GRID_WIDTH / 2.0f, GRID_HEIGHT * 0.8f, GRID_DEPTH / 2.0f);
-                force_radius = 3.0f;
-            }
+            // if (currTarget == GAS)
+            // {
+            //     placeholder_force = glm::vec3(0, 0, -1) * 2.0f;
+            //     force_center = glm::vec3(GRID_WIDTH / 2.0f, GRID_HEIGHT * 0.4f, GRID_DEPTH * 0.7f);
+            //     force_radius = 5.0f;
+            // }
+            // else
+            // {
+            //     placeholder_force = glm::vec3(1, 0, 0) * 2.0f;
+            //     force_center = glm::vec3(GRID_WIDTH / 2.0f, GRID_HEIGHT * 0.8f, GRID_DEPTH / 2.0f);
+            //     force_radius = 3.0f;
+            // }
 
             // we increase density and temperature based on applied force
             float dyeColor = 1.2f;
@@ -574,29 +579,56 @@ int main()
 
             if (currTarget == GAS)
             {
-                AddDensity(&dyeShader, &density_slab, &temp_pressure_divergence_slab, force_center, force_radius, dyeColor, GL_FALSE);
+                for_each(fluidQuantities.begin(), fluidQuantities.end(), [&](FluidQuantity& fluidQuantity)
+                {
+                    if (fluidQuantity.radius > 0.0f)
+                    {
+                        AddDensity(&dyeShader, &density_slab, &temp_pressure_divergence_slab, fluidQuantity.position, fluidQuantity.radius, dyeColor, GL_FALSE);
+                        AddTemperature(temperatureShader, &temperature_slab, &temp_pressure_divergence_slab, fluidQuantity.position, fluidQuantity.radius, dyeColor);
+                    }
+                });
+                // AddDensity(&dyeShader, &density_slab, &temp_pressure_divergence_slab, force_center, force_radius, dyeColor, GL_FALSE);
 
-                AddTemperature(temperatureShader, &temperature_slab, &temp_pressure_divergence_slab, force_center, force_radius, dyeColor);
+                // AddTemperature(temperatureShader, &temperature_slab, &temp_pressure_divergence_slab, force_center, force_radius, dyeColor);
 
                 // force_center.y = 1 - force_center.y;
                 // force_center.x -= GRID_WIDTH / 5.0f;
                 // placeholder_force *= 2.0f;
-                force_radius = 20.0f;
-                ApplyExternalForces(&externalForcesShader, &velocity_slab, &temp_velocity_slab, timeStep, placeholder_force, force_center, force_radius);
+                // force_radius = 20.0f;
+
+                // ApplyExternalForces(&externalForcesShader, &velocity_slab, &temp_velocity_slab, timeStep, placeholder_force, force_center, force_radius);
             }
             else
             {
-                AddDensity(&dyeShader, &density_slab, &temp_pressure_divergence_slab, force_center, force_radius, -force_radius, GL_TRUE);
+                for_each(fluidQuantities.begin(), fluidQuantities.end(), [&](FluidQuantity& fluidQuantity)
+                {
+                    if (fluidQuantity.radius > 0.0f)
+                    {
+                        AddDensity(&dyeShader, &density_slab, &temp_pressure_divergence_slab, fluidQuantity.position, fluidQuantity.radius, -fluidQuantity.radius, GL_TRUE);
+                    }
+                });
+
+
+                // AddDensity(&dyeShader, &density_slab, &temp_pressure_divergence_slab, force_center, force_radius, -force_radius, GL_TRUE);
 
                 ApplyGravity(*gravityShader, velocity_slab, density_slab, temp_velocity_slab, gravityAcceleration, timeStep, gravityLevelSetThreshold);
 
-                force_radius = 5.0f;
-                force_center.x += force_center.x * 0.1f;
-                ApplyExternalForces(&externalForcesShader, &velocity_slab, &temp_velocity_slab, timeStep, placeholder_force, force_center, force_radius);
-                placeholder_force *= -1.0f;
-                force_center.x -= force_center.x * 0.2f;
-                ApplyExternalForces(&externalForcesShader, &velocity_slab, &temp_velocity_slab, timeStep, placeholder_force, force_center, force_radius);
+
+                // force_radius = 5.0f;
+                // force_center.x += force_center.x * 0.1f;
+                // ApplyExternalForces(&externalForcesShader, &velocity_slab, &temp_velocity_slab, timeStep, placeholder_force, force_center, force_radius);
+                // placeholder_force *= -1.0f;
+                // force_center.x -= force_center.x * 0.2f;
+                // ApplyExternalForces(&externalForcesShader, &velocity_slab, &temp_velocity_slab, timeStep, placeholder_force, force_center, force_radius);
             }
+
+            for_each(externalForces.begin(), externalForces.end(), [&](Force& externalForce)
+            {
+                if (externalForce.radius > 0.0f)
+                {
+                    ApplyExternalForces(&externalForcesShader, &velocity_slab, &temp_velocity_slab, timeStep, externalForce.direction * externalForce.strength, externalForce.position, externalForce.radius);
+                }
+            });
 
 
             // force_center.y = 1 - force_center.y;
