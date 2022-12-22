@@ -94,8 +94,8 @@ extern GLfloat orientationY;
 extern GLfloat spin_speed;
 
 // Custom fluid interaction
-extern vector<Force> externalForces;
-extern vector<FluidQuantity> fluidQuantities;
+extern vector<Force*> externalForces;
+extern vector<FluidQuantity*> fluidQuantities;
 
 /////////////////////////
 

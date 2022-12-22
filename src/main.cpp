@@ -594,12 +594,12 @@ int main()
 
             if (currTarget == GAS)
             {
-                for_each(fluidQuantities.begin(), fluidQuantities.end(), [&](FluidQuantity& fluidQuantity)
+                for_each(fluidQuantities.begin(), fluidQuantities.end(), [&](FluidQuantity* fluidQuantity)
                 {
-                    if (fluidQuantity.radius > 0.0f)
+                    if (fluidQuantity->radius > 0.0f)
                     {
-                        AddDensity(&dyeShader, &density_slab, &temp_pressure_divergence_slab, fluidQuantity.position, fluidQuantity.radius, dyeColor, GL_FALSE);
-                        AddTemperature(temperatureShader, &temperature_slab, &temp_pressure_divergence_slab, fluidQuantity.position, fluidQuantity.radius, dyeColor);
+                        AddDensity(&dyeShader, &density_slab, &temp_pressure_divergence_slab, fluidQuantity->position, fluidQuantity->radius, dyeColor, GL_FALSE);
+                        AddTemperature(temperatureShader, &temperature_slab, &temp_pressure_divergence_slab, fluidQuantity->position, fluidQuantity->radius, dyeColor);
                     }
                 });
                 // AddDensity(&dyeShader, &density_slab, &temp_pressure_divergence_slab, force_center, force_radius, dyeColor, GL_FALSE);
@@ -615,11 +615,11 @@ int main()
             }
             else
             {
-                for_each(fluidQuantities.begin(), fluidQuantities.end(), [&](FluidQuantity& fluidQuantity)
+                for_each(fluidQuantities.begin(), fluidQuantities.end(), [&](FluidQuantity* fluidQuantity)
                 {
-                    if (fluidQuantity.radius > 0.0f)
+                    if (fluidQuantity->radius > 0.0f)
                     {
-                        AddDensity(&dyeShader, &density_slab, &temp_pressure_divergence_slab, fluidQuantity.position, fluidQuantity.radius, -fluidQuantity.radius, GL_TRUE);
+                        AddDensity(&dyeShader, &density_slab, &temp_pressure_divergence_slab, fluidQuantity->position, fluidQuantity->radius, -fluidQuantity->radius, GL_TRUE);
                     }
                 });
 
@@ -637,11 +637,11 @@ int main()
                 // ApplyExternalForces(&externalForcesShader, &velocity_slab, &temp_velocity_slab, timeStep, placeholder_force, force_center, force_radius);
             }
 
-            for_each(externalForces.begin(), externalForces.end(), [&](Force& externalForce)
+            for_each(externalForces.begin(), externalForces.end(), [&](Force* externalForce)
             {
-                if (externalForce.radius > 0.0f)
+                if (externalForce->radius > 0.0f)
                 {
-                    ApplyExternalForces(&externalForcesShader, &velocity_slab, &temp_velocity_slab, timeStep, externalForce.direction * externalForce.strength, externalForce.position, externalForce.radius);
+                    ApplyExternalForces(&externalForcesShader, &velocity_slab, &temp_velocity_slab, timeStep, externalForce->direction * externalForce->strength, externalForce->position, externalForce->radius);
                 }
             });
 
