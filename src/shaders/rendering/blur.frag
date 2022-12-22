@@ -10,7 +10,7 @@ uniform int axis;
 
 void main()
 {
-    float x, y, rr = radius * radius, d, w, w0;
+    float x, y, rr = radius * radius, d, w, w0, tot = 0;
     
     vec2 p = gl_FragCoord.xy * InverseScreenSize;
 
@@ -35,6 +35,7 @@ void main()
                 // continue;
 
             col += temp * w; 
+            tot += w;
         }
     }
 
@@ -50,8 +51,12 @@ void main()
                 // continue;
 
             col += temp * w; 
+            tot += w;
         }
     }
+
+    float fraction = fract(max(1.0, tot));
+    col *= 1 - fraction/tot;
 
     FragColor = col;
 }

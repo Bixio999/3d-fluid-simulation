@@ -224,7 +224,9 @@ void ShowLiquidParameters()
         switch (liquidEffect)
         {
             case BLUR: // Blur
-                ImGui::SliderFloat("Blur Radius", &blurRadius, 0.0f, 10.0f);
+                static int val = (int)blurRadius;
+                ImGui::SliderInt("Blur Radius", &val, 1.0f, 10.0f);
+                blurRadius = (float)val;
                 break;
             case DENOISE: // DeNoise
                 ImGui::SliderFloat("DeNoise Sigma", &deNoiseSigma, 0.0f, 10.0f);
