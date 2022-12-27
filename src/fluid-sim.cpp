@@ -784,7 +784,7 @@ void Blur(Shader &blurShader, Slab &source, Slab &dest, GLfloat radius, glm::vec
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-void DeNoise(Shader &deNoiseShader, Slab &source, Slab &dest, GLfloat sigma, GLfloat threshold, GLfloat slider, GLfloat kSigma, glm::vec2 inverseScreenSize)
+void DeNoise(Shader &deNoiseShader, Slab &source, Slab &dest, GLfloat sigma, GLfloat threshold, GLfloat kSigma, glm::vec2 inverseScreenSize)
 {
     deNoiseShader.Use();
 

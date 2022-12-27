@@ -186,6 +186,9 @@ vector<GLint> textureID;
 // UV repetitions
 GLfloat repeat = 1.0;
 
+// rotation angle on Y axis
+GLfloat orientationY;
+
 // Target fluid specific shaders
 Shader *buoyancyShader, *temperatureShader, *initLiquidShader, *dampingLevelSetShader, *gravityShader;
 Shader *renderShader;
@@ -314,12 +317,12 @@ int main()
 
     /////////////////// CREATION OF OBSTACLES /////////////////////////////////////////////////////////////
 
-    CreateObstacleObject("models/bunny_lp.obj", "models/bunny_lp.obj", "bunny", glm::vec3(4.0f, 1.0f, 0.0f), glm::vec3(0.3f, 0.3f, 0.3f));
+    CreateObstacleObject("models/bunny_lp.obj", "bunny", glm::vec3(4.0f, 1.0f, 0.0f), glm::vec3(0.3f, 0.3f, 0.3f));
 
     // Model* m = new Model("models/bunny_lp.obj");
     // ObstacleObject bunny = {glm::mat4(1.0f), glm::mat4(1.0f), m, m};
 
-    CreateObstacleObject("models/sphere.obj", "models/sphere.obj", "sphere", glm::vec3(-5.0f, 1.0f, 1.0f), glm::vec3(1.0f));
+    CreateObstacleObject("models/sphere.obj", "sphere", glm::vec3(-5.0f, 1.0f, 1.0f), glm::vec3(1.0f));
     // m = new Model("models/sphere.obj");
     // ObstacleObject sphere = {glm::mat4(1.0f), glm::mat4(1.0f), m, m};
     
@@ -584,7 +587,7 @@ int main()
                 AdvectMacCormack(&advectionShader, &macCormackShader, &velocity_slab, &phi1_hat_slab, &phi2_hat_slab, &obstacle_slab, &temperature_slab, &temp_pressure_divergence_slab, temperatureDissipation, timeStep);
 
                 // we apply the buoyancy force
-                Buoyancy(buoyancyShader, &velocity_slab, &temperature_slab, &density_slab, &temp_velocity_slab, ambientTemperature, timeStep, ambientBuoyancy, ambientWeight);
+                Buoyancy(buoyancyShader, &velocity_slab, &temperature_slab, &density_slab, &temp_velocity_slab, ambientTemperature, timeStep, dampingBuoyancy, ambientWeight);
             }
             else
             {
@@ -837,7 +840,7 @@ int main()
                     Blur(blurShader, fluidSceneSlab, temp_screenSize_slab, blurRadius, inverseScreenSize);
                     break;
                 case DENOISE:
-                    DeNoise(deNoiseShader, fluidSceneSlab, temp_screenSize_slab, deNoiseSigma, deNoiseThreshold, deNoiseSlider, deNoiseKSigma, inverseScreenSize);
+                    DeNoise(deNoiseShader, fluidSceneSlab, temp_screenSize_slab, deNoiseSigma, deNoiseThreshold, deNoiseKSigma, inverseScreenSize);
                     fluidScene.colorTex = fluidSceneSlab.tex;
                     fluidScene.fbo = fluidSceneSlab.fbo;
                     break;

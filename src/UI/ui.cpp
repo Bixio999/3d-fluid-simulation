@@ -7,6 +7,7 @@
 #include "ui.h"
 
 //////////////////////////
+// parameters definition
 
 // parameters for simulation time step
 GLfloat timeStep;
@@ -34,7 +35,7 @@ GLuint pressureIterations;
 
 // Buoyancy parameters
 GLfloat ambientTemperature;
-GLfloat ambientBuoyancy;
+GLfloat dampingBuoyancy;
 GLfloat ambientWeight;
 
 // Dissipation factors
@@ -52,11 +53,8 @@ GLfloat blurRadius;
 // DeNoise filter parameters
 GLfloat deNoiseSigma;
 GLfloat deNoiseThreshold;
-GLfloat deNoiseSlider;
 GLfloat deNoiseKSigma;
 
-// rotation angle on Y axis
-GLfloat orientationY;
 // rotation speed on Y axis
 GLfloat spin_speed;
 
@@ -105,7 +103,7 @@ void ResetParameters()
 
     // Buoyancy parameters
     ambientTemperature = 0.0f;
-    ambientBuoyancy = 0.9f;
+    dampingBuoyancy = 0.9f;
     ambientWeight = 0.15f;
 
     // Dissipation factors
@@ -123,11 +121,8 @@ void ResetParameters()
     // DeNoise filter parameters
     deNoiseSigma = 7.0f;
     deNoiseThreshold = 0.23f;
-    deNoiseSlider = 0.0f;
     deNoiseKSigma = 3.0f;
 
-    // // rotation angle on Y axis
-    // orientationY = 0.0f;
     // rotation speed on Y axis
     spin_speed = 60.0f;
 }
@@ -253,7 +248,7 @@ void ShowGasParameters()
 
     if (ImGui::TreeNode("Buoyancy"))
     {
-        ImGui::SliderFloat("Buoyancy Factor", &ambientBuoyancy, 0.0f, 10.0f);
+        ImGui::SliderFloat("Buoyancy damping factor", &dampingBuoyancy, 0.0f, 10.0f);
         ImGui::SliderFloat("Weight Factor", &ambientWeight, 0.0f, 10.0f);
         ImGui::SliderFloat("Ambient Temperature", &ambientTemperature, 0.0f, 10.0f);
         ImGui::TreePop();
@@ -453,7 +448,7 @@ void ShowObstacleObjectsControls()
                 }
                 else
                 {
-                    CreateObstacleObject(high_poly_mesh_path, low_poly_mesh_path, object_name, glm::vec3(0.0f), glm::vec3(1.0f));
+                    CreateObstacleObject(high_poly_mesh_path, low_poly_mesh_path, object_name);
                     ImGui::CloseCurrentPopup();
                 }
             }
@@ -462,16 +457,16 @@ void ShowObstacleObjectsControls()
                 switch (item_current)
                 {
                     case 1: // Cube
-                        CreateObstacleObject("models/cube.obj", "models/cube.obj", "Cube", glm::vec3(0.0f), glm::vec3(1.0f));
+                        CreateObstacleObject("models/cube.obj", "Cube");
                         break;
                     case 2: // Sphere
-                        CreateObstacleObject("models/sphere.obj", "models/sphere.obj", "Sphere", glm::vec3(0.0f), glm::vec3(1.0f));
+                        CreateObstacleObject("models/sphere.obj", "Sphere");
                         break;
                     case 3: // Bunny
-                        CreateObstacleObject("models/bunny.obj", "models/bunny.obj", "Bunny", glm::vec3(0.0f), glm::vec3(0.3f));
+                        CreateObstacleObject("models/bunny.obj", "Bunny");
                         break;
                     case 4: // Baby Yoda
-                        CreateObstacleObject("models/babyyoda.obj", "models/low-poly_babyyoda.obj", "Baby Yoda", glm::vec3(0.0f), glm::vec3(0.3f));
+                        CreateObstacleObject("models/babyyoda.obj", "models/low-poly_babyyoda.obj", "Baby Yoda");
                         break;
                     
                     default:
@@ -604,4 +599,9 @@ void CreateObstacleObject(const string& highPolyPath, const string& lowPolyPath,
     ObstacleObject *obj = new ObstacleObject { glm::mat4(1.0), glm::mat4(1.0), highPoly, lowPoly, position, scale, n, true };
 
     obstacleObjects.push_back(obj);
+}
+
+void CreateObstacleObject(const string& highPolyPath, const char* name, glm::vec3 position, glm::vec3 scale)
+{
+    CreateObstacleObject(highPolyPath, highPolyPath, name, position, scale);
 }
