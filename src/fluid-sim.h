@@ -13,6 +13,10 @@
 #include <utils/shader.h>
 #include <utils/model.h>
 
+#include "obstacle_object.h"
+
+/////////////////////////////////////////////
+
 struct Slab
 {
     GLuint fbo;
@@ -36,13 +40,7 @@ struct ObstacleSlab
     GLuint lastLayerFBO;
 };
 
-struct ObstacleObject
-{
-    glm::mat4 modelMatrix;
-    glm::mat4 prevModelMatrix;
-    Model* objectModel;
-    Model* lowPolyModel;
-};
+/////////////////////////////////////////////
 
 // create a simulation grid slab
 Slab CreateSlab(GLuint width, GLuint height, GLuint depth, GLushort dimensions);
@@ -133,7 +131,7 @@ ObstacleSlab CreateObstacleBuffer(GLuint width, GLuint height, GLuint depth);
 
 void ClearObstacleBuffers(ObstacleSlab &obstaclePosition, Slab &obstacleVelocity);
 
-void DynamicObstacle(Shader &stencilObstacleShader, Shader &obstacleVelocityShader, ObstacleSlab &obstacle_position, Slab &obstacle_velocity, Slab &temp_slab, ObstacleObject &obstacle, glm::vec3 translation, GLfloat scale, GLfloat deltaTime);
+void DynamicObstacle(Shader &stencilObstacleShader, Shader &obstacleVelocityShader, ObstacleSlab &obstacle_position, Slab &obstacle_velocity, Slab &temp_slab, ObstacleObject* obstacle, glm::vec3 translation, GLfloat scale, GLfloat deltaTime);
 
 Slab CreateStencilBuffer(GLuint width, GLuint height);
 

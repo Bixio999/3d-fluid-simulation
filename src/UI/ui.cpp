@@ -2,6 +2,8 @@
 #include "imgui/imgui_impl_glfw.h"
 #include "imgui/imgui_impl_opengl3.h"
 
+#include "imgui/ImGuiFileDialog/ImGuiFileDialog.h"
+
 #include "ui.h"
 
 //////////////////////////
@@ -61,6 +63,9 @@ GLfloat spin_speed;
 // Custom fluid interaction
 vector<Force*> externalForces = vector<Force*>();
 vector<FluidQuantity*> fluidQuantities = vector<FluidQuantity*>();
+
+// data structure for obstacle objects interaction
+vector<ObstacleObject*> obstacleObjects = vector<ObstacleObject*>();
 
 //////////////////////////
 
@@ -333,6 +338,155 @@ void ShowStaticFluidDyeParameter()
     }
 }
 
+void ShowObstacleObjectsControls()
+{
+    if (!ImGui::CollapsingHeader("Obstacle Objects"))
+        return;
+
+    for (int i = 0; i < obstacleObjects.size(); i++)
+    {
+        if (ImGui::TreeNode(obstacleObjects[i]->name.c_str()))
+        {
+            ImGui::Checkbox("Enabled", &(obstacleObjects[i]->isActive));
+
+            ImGui::SliderFloat3("Position", glm::value_ptr(obstacleObjects[i]->position), -10.0f, 10.0f);
+
+            ImGui::SliderFloat3("Scale", glm::value_ptr(obstacleObjects[i]->scale), 0.0f, 10.0f);
+
+            if (ImGui::Button("Delete"))
+            {
+                ObstacleObject* o = obstacleObjects[i];
+                obstacleObjects.erase(obstacleObjects.begin() + i); 
+
+                // delete o;
+                o->~ObstacleObject();
+            }
+
+            ImGui::TreePop();
+        }
+    }
+
+    if (ImGui::Button("Add Obstacle"))
+    {
+        ImGui::OpenPopup("Add new obstacle");
+        // obstacleObjects.push_back(new ObstacleObject { glm::vec3(0.0f), 0.0f});
+    }
+
+    ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+    ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+
+    if (ImGui::BeginPopupModal("Add new obstacle", NULL, ImGuiWindowFlags_AlwaysAutoResize))
+    {
+        ImGui::Text("Select an object to add as an obstacle by selecting its\nhigh poly mesh for scene rendering and low poly mesh for\nsimulation obstacle rendering. ");
+        ImGui::Separator();
+
+        const char* items[] = { "New import", "Cube", "Sphere", "Bunny", "Baby Yoda" };
+        static int item_current = 0;
+        ImGui::Combo("Object", &item_current, items, IM_ARRAYSIZE(items));
+
+        ImGui::Separator();
+
+        static char object_name[50], high_poly_mesh_path[256], low_poly_mesh_path[256];
+        if (item_current == 0)
+        {
+            ImGui::InputText("Obstacle object name", object_name, IM_ARRAYSIZE(object_name), ImGuiInputTextFlags_CharsNoBlank);
+
+            ImVec2 maxSize = ImGui::GetMainViewport()->Size;  // The full display area
+            // ImVec2 minSize = maxSize * 0.3f;  // Half the display area
+            ImVec2 minSize = ImVec2(maxSize.x * 0.3f, maxSize.y * 0.3f);  // A third of the display area
+
+            ImGui::Spacing();
+
+            //////////////////////////////////////////
+
+            ImGui::InputText("##highpolyPath", high_poly_mesh_path, IM_ARRAYSIZE(high_poly_mesh_path), ImGuiInputTextFlags_CharsNoBlank);
+            ImGui::SameLine();
+            if (ImGui::Button("Browse##HighPoly"))
+            {
+                ImGuiFileDialog::Instance()->OpenDialog("ChooseHighPolyMesh", "Choose High Poly Mesh", ".obj", ".");
+            }
+
+            if (ImGuiFileDialog::Instance()->Display("ChooseHighPolyMesh", ImGuiWindowFlags_NoCollapse, minSize, maxSize))
+            {
+                if (ImGuiFileDialog::Instance()->IsOk())
+                {
+                    std::string filePathName = ImGuiFileDialog::Instance()->GetFilePathName();
+                    strcpy(high_poly_mesh_path, filePathName.substr(0, 256).c_str());
+                }
+                ImGuiFileDialog::Instance()->Close();
+            }
+            ImGui::SameLine(); ImGui::Text("High poly mesh path");
+
+            ImGui::Spacing();
+
+            //////////////////////////////////////////
+
+            ImGui::InputText("##lowpolyPath", low_poly_mesh_path, IM_ARRAYSIZE(low_poly_mesh_path), ImGuiInputTextFlags_CharsNoBlank);
+            ImGui::SameLine();
+            if (ImGui::Button("Browse##LowPoly"))
+            {
+                ImGuiFileDialog::Instance()->OpenDialog("ChooseLowPolyMesh", "Choose Low Poly Mesh", ".obj", ".");
+                std::cout << "ChooseLowPolyMesh" << std::endl;
+            }
+            ImGui::SameLine(); ImGui::Text("Low poly mesh path");
+
+            if (ImGuiFileDialog::Instance()->Display("ChooseLowPolyMesh", ImGuiWindowFlags_NoCollapse, minSize, maxSize))
+            {
+                if (ImGuiFileDialog::Instance()->IsOk())
+                {
+                    std::string filePathName = ImGuiFileDialog::Instance()->GetFilePathName();
+                    strcpy(low_poly_mesh_path, filePathName.substr(0, 256).c_str());
+                }
+                ImGuiFileDialog::Instance()->Close();
+            }
+            ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing();
+        }
+
+
+        if (ImGui::Button("Add", ImVec2(120, 0))) 
+        { 
+            if (item_current == 0)
+            {
+                if (strlen(object_name) == 0 || strlen(high_poly_mesh_path) == 0 || strlen(low_poly_mesh_path) == 0)
+                {
+                    ImGui::OpenPopup("Error! Please fill in all fields.");
+                }
+                else
+                {
+                    CreateObstacleObject(high_poly_mesh_path, low_poly_mesh_path, object_name, glm::vec3(0.0f), glm::vec3(1.0f));
+                    ImGui::CloseCurrentPopup();
+                }
+            }
+            else
+            {
+                switch (item_current)
+                {
+                    case 1: // Cube
+                        CreateObstacleObject("models/cube.obj", "models/cube.obj", "Cube", glm::vec3(0.0f), glm::vec3(1.0f));
+                        break;
+                    case 2: // Sphere
+                        CreateObstacleObject("models/sphere.obj", "models/sphere.obj", "Sphere", glm::vec3(0.0f), glm::vec3(1.0f));
+                        break;
+                    case 3: // Bunny
+                        CreateObstacleObject("models/bunny.obj", "models/bunny.obj", "Bunny", glm::vec3(0.0f), glm::vec3(0.3f));
+                        break;
+                    case 4: // Baby Yoda
+                        CreateObstacleObject("models/babyyoda.obj", "models/low-poly_babyyoda.obj", "Baby Yoda", glm::vec3(0.0f), glm::vec3(0.3f));
+                        break;
+                    
+                    default:
+                        break;
+                }
+                ImGui::CloseCurrentPopup();
+            }   
+        }
+
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel", ImVec2(120, 0))) { ImGui::CloseCurrentPopup(); }
+        ImGui::EndPopup();
+    }
+}
+
 void CustomUI()
 {
     const ImGuiViewport* main_viewport = ImGui::GetMainViewport();
@@ -385,6 +539,10 @@ void CustomUI()
 
     ////////////////////////////////
 
+    ShowObstacleObjectsControls();
+
+    ////////////////////////////////
+
     ImGui::End();
 }
 
@@ -418,14 +576,32 @@ void InitUI(GLFWwindow* window)
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
-    // io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-    // io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
 
     // Setup Dear ImGui style
     ImGui::StyleColorsDark();
-    // ImGui::StyleColorsClassic();
 
     // Setup Platform/Renderer bindings
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 410");
+}
+
+void CreateObstacleObject(const string& highPolyPath, const string& lowPolyPath, const char* name, glm::vec3 position, glm::vec3 scale)
+{
+    Model* highPoly = new Model(highPolyPath);
+    Model* lowPoly;
+
+    if (highPolyPath == lowPolyPath)
+        lowPoly = highPoly;
+    else
+        lowPoly = new Model(lowPolyPath);
+
+    string n;
+    if (name)
+        n = name;
+    else
+        n = "Obstacle " + std::to_string(obstacleObjects.size() + 1);
+
+    ObstacleObject *obj = new ObstacleObject { glm::mat4(1.0), glm::mat4(1.0), highPoly, lowPoly, position, scale, n, true };
+
+    obstacleObjects.push_back(obj);
 }

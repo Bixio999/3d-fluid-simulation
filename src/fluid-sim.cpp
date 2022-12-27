@@ -1006,7 +1006,7 @@ void ClearObstacleBuffers(ObstacleSlab &obstaclePosition, Slab &obstacleVelocity
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-void DynamicObstaclePosition(Shader &stencilObstacleShader, ObstacleSlab &dest, ObstacleObject &obstacle, glm::mat4 view, glm::mat4 projection, GLfloat scale)
+void DynamicObstaclePosition(Shader &stencilObstacleShader, ObstacleSlab &dest, ObstacleObject* obstacle, glm::mat4 view, glm::mat4 projection, GLfloat scale)
 {
     glBindFramebuffer(GL_FRAMEBUFFER, dest.fbo);
 
@@ -1029,7 +1029,7 @@ void DynamicObstaclePosition(Shader &stencilObstacleShader, ObstacleSlab &dest, 
 
     glUniformMatrix4fv(glGetUniformLocation(stencilObstacleShader.Program, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
     glUniformMatrix4fv(glGetUniformLocation(stencilObstacleShader.Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
-    glUniformMatrix4fv(glGetUniformLocation(stencilObstacleShader.Program, "model"), 1, GL_FALSE, glm::value_ptr(obstacle.modelMatrix));
+    glUniformMatrix4fv(glGetUniformLocation(stencilObstacleShader.Program, "model"), 1, GL_FALSE, glm::value_ptr(obstacle->modelMatrix));
 
     glUniform1f(glGetUniformLocation(stencilObstacleShader.Program, "scaling_factor"), scale);
     glUniform1f(glGetUniformLocation(stencilObstacleShader.Program, "grid_depth"), GRID_DEPTH);
@@ -1037,17 +1037,17 @@ void DynamicObstaclePosition(Shader &stencilObstacleShader, ObstacleSlab &dest, 
     glUniform4fv(glGetUniformLocation(stencilObstacleShader.Program, "color"), 1, glm::value_ptr(glm::vec4(0.0f)));
 
     glCullFace(GL_FRONT);
-    obstacle.lowPolyModel->DrawInstanced(GRID_DEPTH);
+    obstacle->lowPolyModel->DrawInstanced(GRID_DEPTH);
 
     glCullFace(GL_BACK);
-    obstacle.lowPolyModel->DrawInstanced(GRID_DEPTH);
+    obstacle->lowPolyModel->DrawInstanced(GRID_DEPTH);
 
     glStencilFunc(GL_NOTEQUAL, 0, 0xFF);
     glStencilMask(0x00);
 
     glDisable(GL_CULL_FACE);
     glUniform4fv(glGetUniformLocation(stencilObstacleShader.Program, "color"), 1, glm::value_ptr(glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)));
-    obstacle.lowPolyModel->DrawInstanced(GRID_DEPTH);
+    obstacle->lowPolyModel->DrawInstanced(GRID_DEPTH);
 
     glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
     glStencilMask(0xFF);
@@ -1059,7 +1059,7 @@ void DynamicObstaclePosition(Shader &stencilObstacleShader, ObstacleSlab &dest, 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-void DynamicObstacleVelocity(Shader &obstacleVelocityShader, Slab &obstacle_velocity, Slab &dest, ObstacleObject &obstacle, glm::mat4 view, glm::mat4 projection, glm::vec3 firstLayerPoint, glm::vec3 layersDir, GLfloat deltaTime, GLfloat texelDiagonalSize)
+void DynamicObstacleVelocity(Shader &obstacleVelocityShader, Slab &obstacle_velocity, Slab &dest, ObstacleObject* obstacle, glm::mat4 view, glm::mat4 projection, glm::vec3 firstLayerPoint, glm::vec3 layersDir, GLfloat deltaTime, GLfloat texelDiagonalSize)
 {
     glBindFramebuffer(GL_FRAMEBUFFER, dest.fbo);
     glClear(GL_COLOR_BUFFER_BIT);
@@ -1070,8 +1070,8 @@ void DynamicObstacleVelocity(Shader &obstacleVelocityShader, Slab &obstacle_velo
     glBindTexture(GL_TEXTURE_3D, obstacle_velocity.tex);
     glUniform1i(glGetUniformLocation(obstacleVelocityShader.Program, "ObstacleVelocity"), 0);
 
-    glUniformMatrix4fv(glGetUniformLocation(obstacleVelocityShader.Program, "model"), 1, GL_FALSE, glm::value_ptr(obstacle.modelMatrix));
-    glUniformMatrix4fv(glGetUniformLocation(obstacleVelocityShader.Program, "prevModel"), 1, GL_FALSE, glm::value_ptr(obstacle.prevModelMatrix));
+    glUniformMatrix4fv(glGetUniformLocation(obstacleVelocityShader.Program, "model"), 1, GL_FALSE, glm::value_ptr(obstacle->modelMatrix));
+    glUniformMatrix4fv(glGetUniformLocation(obstacleVelocityShader.Program, "prevModel"), 1, GL_FALSE, glm::value_ptr(obstacle->prevModelMatrix));
     glUniformMatrix4fv(glGetUniformLocation(obstacleVelocityShader.Program, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
     glUniformMatrix4fv(glGetUniformLocation(obstacleVelocityShader.Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
 
@@ -1083,7 +1083,7 @@ void DynamicObstacleVelocity(Shader &obstacleVelocityShader, Slab &obstacle_velo
     glUniform3fv(glGetUniformLocation(obstacleVelocityShader.Program, "firstLayerPoint"), 1, glm::value_ptr(firstLayerPoint));
     glUniform3fv(glGetUniformLocation(obstacleVelocityShader.Program, "layersDir"), 1, glm::value_ptr(layersDir));
 
-    obstacle.lowPolyModel->DrawInstanced(GRID_DEPTH);
+    obstacle->lowPolyModel->DrawInstanced(GRID_DEPTH);
 
     glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_3D, 0);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -1091,7 +1091,7 @@ void DynamicObstacleVelocity(Shader &obstacleVelocityShader, Slab &obstacle_velo
     SwapSlabs(&obstacle_velocity, &dest);
 }
 
-void DynamicObstacle(Shader &stencilObstacleShader, Shader &obstacleVelocityShader, ObstacleSlab &obstacle_position, Slab &obstacle_velocity, Slab &temp_slab, ObstacleObject &obstacle, glm::vec3 translation, GLfloat scale, GLfloat deltaTime)
+void DynamicObstacle(Shader &stencilObstacleShader, Shader &obstacleVelocityShader, ObstacleSlab &obstacle_position, Slab &obstacle_velocity, Slab &temp_slab, ObstacleObject* obstacle, glm::vec3 translation, GLfloat scale, GLfloat deltaTime)
 {
     glViewport(0,0, GRID_WIDTH, GRID_HEIGHT);
 

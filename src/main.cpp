@@ -117,7 +117,7 @@ void SetupShader(int shader_program);
 void PrintCurrentShader(int subroutine);
 
 // in this application, we have isolated the models rendering using a function, which will be called in each rendering step
-void RenderObjects(Shader &shader, Model &planeModel, ObstacleObject &sphere, ObstacleObject &bunny, ObstacleObject &babyYoda, GLint render_pass, GLuint depthMap);
+void RenderObjects(Shader &shader, Model &planeModel, GLint render_pass, GLuint depthMap);
 
 // load image from disk and create an OpenGL texture
 GLint LoadTexture(const char* path);
@@ -314,13 +314,17 @@ int main()
 
     /////////////////// CREATION OF OBSTACLES /////////////////////////////////////////////////////////////
 
-    Model* m = new Model("models/bunny_lp.obj");
-    ObstacleObject bunny = {glm::mat4(1.0f), glm::mat4(1.0f), m, m};
+    CreateObstacleObject("models/bunny_lp.obj", "models/bunny_lp.obj", "bunny", glm::vec3(4.0f, 1.0f, 0.0f), glm::vec3(0.3f, 0.3f, 0.3f));
 
-    m = new Model("models/sphere.obj");
-    ObstacleObject sphere = {glm::mat4(1.0f), glm::mat4(1.0f), m, m};
+    // Model* m = new Model("models/bunny_lp.obj");
+    // ObstacleObject bunny = {glm::mat4(1.0f), glm::mat4(1.0f), m, m};
+
+    CreateObstacleObject("models/sphere.obj", "models/sphere.obj", "sphere", glm::vec3(-5.0f, 1.0f, 1.0f), glm::vec3(1.0f));
+    // m = new Model("models/sphere.obj");
+    // ObstacleObject sphere = {glm::mat4(1.0f), glm::mat4(1.0f), m, m};
     
-    ObstacleObject babyYoda = {glm::mat4(1.0f), glm::mat4(1.0f), new Model("models/babyyoda.obj"), new Model("models/low-poly_babyyoda.obj")};
+    CreateObstacleObject("models/babyyoda.obj", "models/low-poly_babyyoda.obj", "baby yoda", glm::vec3(0.0f, 1.0f, 1.0f), glm::vec3(0.3f, 0.3f, 0.3f));
+    // ObstacleObject babyYoda = {glm::mat4(1.0f), glm::mat4(1.0f), new Model("models/babyyoda.obj"), new Model("models/low-poly_babyyoda.obj")};
 
     /////////////////// CREATION OF BUFFERS FOR THE SIMULATION GRID /////////////////////////////////////////
     // Grid dimensions
@@ -517,34 +521,52 @@ int main()
             cubeModelMatrix = glm::translate(cubeModelMatrix, fluidTranslation);
             cubeModelMatrix = glm::scale(cubeModelMatrix, glm::vec3(fluidScale));
 
-            // we update the model matrix for the bunny
-            bunny.prevModelMatrix = bunny.modelMatrix;
-            bunny.modelMatrix = glm::mat4(1.0f);
-            // bunnyNormalMatrix = glm::mat3(1.0f);
-            bunny.modelMatrix = glm::translate(bunny.modelMatrix, glm::vec3(4.0f, 1.0f, 0.0f));
-            // bunny.modelMatrix = glm::translate(bunny.modelMatrix, glm::vec3(0.0f, 1.0f, 1.0f));
-            bunny.modelMatrix = glm::rotate(bunny.modelMatrix, glm::radians(orientationY), glm::vec3(0.0f, 1.0f, 0.0f));
-            bunny.modelMatrix = glm::scale(bunny.modelMatrix, glm::vec3(0.3f, 0.3f, 0.3f));
 
-            // we update the model matrix for the sphere
-            sphere.prevModelMatrix = sphere.modelMatrix;
-            sphere.modelMatrix = glm::mat4(1.0f);
-            // sphereNormalMatrix = glm::mat3(1.0f);
-            // sphere.modelMatrix = glm::translate(sphere.modelMatrix, glm::vec3(0.0f, 1.0f, 1.0f));
-            sphere.modelMatrix = glm::translate(sphere.modelMatrix, glm::vec3(-5.0f, 1.0f, 1.0f));
-            sphere.modelMatrix = glm::rotate(sphere.modelMatrix, glm::radians(orientationY), glm::vec3(0.0f, 1.0f, 0.0f));
-            // sphere.modelMatrix = glm::scale(sphere.modelMatrix, glm::vec3(0.3f, 0.3f, 0.3f));
+            // we update the model matrices for the obstacles
+            for_each(obstacleObjects.begin(), obstacleObjects.end(), [&](ObstacleObject* obj)
+            {
+                if (!obj->isActive) return;
 
-            // we update the matrix for baby yoda
-            babyYoda.prevModelMatrix = babyYoda.modelMatrix;
-            babyYoda.modelMatrix = glm::mat4(1.0f);
-            // babyYodaNormalMatrix = glm::mat3(1.0f);
-            babyYoda.modelMatrix = glm::translate(babyYoda.modelMatrix, glm::vec3(0.0f, 1.0f, 1.0f));
-            babyYoda.modelMatrix = glm::rotate(babyYoda.modelMatrix, glm::radians(orientationY), glm::vec3(0.0f, 1.0f, 0.0f));
-            babyYoda.modelMatrix = glm::scale(babyYoda.modelMatrix, glm::vec3(0.3f, 0.3f, 0.3f));
+                obj->prevModelMatrix = obj->modelMatrix;
+
+                obj->modelMatrix = glm::mat4(1.0f);
+
+                obj->modelMatrix = glm::translate(obj->modelMatrix, obj->position);
+                obj->modelMatrix = glm::rotate(obj->modelMatrix, glm::radians(orientationY), glm::vec3(0.0f, 1.0f, 0.0f));
+                obj->modelMatrix = glm::scale(obj->modelMatrix, obj->scale);
+
+                // we draw the obstacle in the obstacle position buffer
+                DynamicObstacle(stencilObstacleShader, obstacleVelocityShader, obstacle_slab, obstacle_velocity_slab, temp_velocity_slab, obj, fluidTranslation, fluidScale, simulationFramerate);
+            });
+
+            // // we update the model matrix for the bunny
+            // bunny.prevModelMatrix = bunny.modelMatrix;
+            // bunny.modelMatrix = glm::mat4(1.0f);
+            // // bunnyNormalMatrix = glm::mat3(1.0f);
+            // bunny.modelMatrix = glm::translate(bunny.modelMatrix, glm::vec3(4.0f, 1.0f, 0.0f));
+            // // bunny.modelMatrix = glm::translate(bunny.modelMatrix, glm::vec3(0.0f, 1.0f, 1.0f));
+            // bunny.modelMatrix = glm::rotate(bunny.modelMatrix, glm::radians(orientationY), glm::vec3(0.0f, 1.0f, 0.0f));
+            // bunny.modelMatrix = glm::scale(bunny.modelMatrix, glm::vec3(0.3f, 0.3f, 0.3f));
+
+            // // we update the model matrix for the sphere
+            // sphere.prevModelMatrix = sphere.modelMatrix;
+            // sphere.modelMatrix = glm::mat4(1.0f);
+            // // sphereNormalMatrix = glm::mat3(1.0f);
+            // // sphere.modelMatrix = glm::translate(sphere.modelMatrix, glm::vec3(0.0f, 1.0f, 1.0f));
+            // sphere.modelMatrix = glm::translate(sphere.modelMatrix, glm::vec3(-5.0f, 1.0f, 1.0f));
+            // sphere.modelMatrix = glm::rotate(sphere.modelMatrix, glm::radians(orientationY), glm::vec3(0.0f, 1.0f, 0.0f));
+            // // sphere.modelMatrix = glm::scale(sphere.modelMatrix, glm::vec3(0.3f, 0.3f, 0.3f));
+
+            // // we update the matrix for baby yoda
+            // babyYoda.prevModelMatrix = babyYoda.modelMatrix;
+            // babyYoda.modelMatrix = glm::mat4(1.0f);
+            // // babyYodaNormalMatrix = glm::mat3(1.0f);
+            // babyYoda.modelMatrix = glm::translate(babyYoda.modelMatrix, glm::vec3(0.0f, 1.0f, 1.0f));
+            // babyYoda.modelMatrix = glm::rotate(babyYoda.modelMatrix, glm::radians(orientationY), glm::vec3(0.0f, 1.0f, 0.0f));
+            // babyYoda.modelMatrix = glm::scale(babyYoda.modelMatrix, glm::vec3(0.3f, 0.3f, 0.3f));
 
             // we draw the dynamic obstacles in the obstacle buffer
-            DynamicObstacle(stencilObstacleShader, obstacleVelocityShader, obstacle_slab, obstacle_velocity_slab, temp_velocity_slab, babyYoda, fluidTranslation, fluidScale, simulationFramerate);
+            // DynamicObstacle(stencilObstacleShader, obstacleVelocityShader, obstacle_slab, obstacle_velocity_slab, temp_velocity_slab, babyYoda, fluidTranslation, fluidScale, simulationFramerate);
 
             /////////////////// STEP 2 - UPDATE SIMULATION  //////////////////////////////////////////////////////////////////////////
             // we bind the VAO for the quad and set up rendering
@@ -696,7 +718,7 @@ int main()
         glClear(GL_DEPTH_BUFFER_BIT);
 
         // we render the scene, using the shadow shader
-        RenderObjects(shadow_shader, planeModel, sphere, bunny, babyYoda, SHADOWMAP, depthMap);
+        RenderObjects(shadow_shader, planeModel, SHADOWMAP, depthMap);
 
         // /////////////////// STEP 2 - SCENE RENDERING FROM CAMERA ////////////////////////////////////////////////
 
@@ -752,7 +774,7 @@ int main()
         glUniform1f(f0Location, F0);
 
         // we render the scene
-        RenderObjects(illumination_shader, planeModel, sphere, bunny, babyYoda, RENDER, depthMap);
+        RenderObjects(illumination_shader, planeModel, RENDER, depthMap);
 
         // setup fluid volume matrices
         // cubeModelMatrix = glm::mat4(1.0f);
@@ -865,7 +887,7 @@ int main()
 
 //////////////////////////////////////////
 // we render the objects. We pass also the current rendering step, and the depth map generated in the first step, which is used by the shaders of the second step
-void RenderObjects(Shader &shader, Model &planeModel, ObstacleObject &sphere, ObstacleObject &bunny, ObstacleObject &babyYoda, GLint render_pass, GLuint depthMap)
+void RenderObjects(Shader &shader, Model &planeModel, GLint render_pass, GLuint depthMap)
 {
     // For the second rendering step -> we pass the shadow map to the shaders
     if (render_pass==RENDER)
@@ -907,12 +929,32 @@ void RenderObjects(Shader &shader, Model &planeModel, ObstacleObject &sphere, Ob
     planeModel.Draw();
 
 
-    // SPHERE
-    // we activate the texture of the object
+    // we activate the texture of the objects
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, textureID[0]);
     glUniform1i(textureLocation, 0);
     glUniform1f(repeatLocation, repeat);
+
+    // OBJECTS
+
+    glm::mat3 normalMatrix;
+    for_each(obstacleObjects.begin(), obstacleObjects.end(), [&](ObstacleObject* obj)
+    {
+        if (!obj->isActive) return;
+
+        // we create the normal matrix
+        normalMatrix = glm::inverseTranspose(glm::mat3(view * obj->modelMatrix));
+
+        // we pass the needed uniforms
+        glUniformMatrix4fv(glGetUniformLocation(shader.Program, "modelMatrix"), 1, GL_FALSE, glm::value_ptr(obj->modelMatrix));
+        glUniformMatrix3fv(glGetUniformLocation(shader.Program, "normalMatrix"), 1, GL_FALSE, glm::value_ptr(normalMatrix));
+
+        // we render the object
+        obj->objectModel->Draw();
+    });
+
+
+
 
     // we reset to identity at each frame
     // sphere.prevModelMatrix = sphere.modelMatrix;
@@ -920,31 +962,31 @@ void RenderObjects(Shader &shader, Model &planeModel, ObstacleObject &sphere, Ob
     // sphereNormalMatrix = glm::mat3(1.0f);
     // sphere.modelMatrix = glm::translate(sphere.modelMatrix, glm::vec3(-3.0f, 1.0f, 0.0f));
     // // sphere.modelMatrix = glm::translate(sphere.modelMatrix, glm::vec3(0.0f, 1.0f, 0.0f));
-    // sphere.modelMatrix = glm::rotate(sphere.modelMatrix, glm::radians(orientationY), glm::vec3(0.0f, 1.0f, 0.0f));
-    // sphere.modelMatrix = glm::scale(sphere.modelMatrix, glm::vec3(0.8f, 0.8f, 0.8f));
-    sphereNormalMatrix = glm::inverseTranspose(glm::mat3(view*sphere.modelMatrix));
-    glUniformMatrix4fv(glGetUniformLocation(shader.Program, "modelMatrix"), 1, GL_FALSE, glm::value_ptr(sphere.modelMatrix));
-    glUniformMatrix3fv(glGetUniformLocation(shader.Program, "normalMatrix"), 1, GL_FALSE, glm::value_ptr(sphereNormalMatrix));
+    // // sphere.modelMatrix = glm::rotate(sphere.modelMatrix, glm::radians(orientationY), glm::vec3(0.0f, 1.0f, 0.0f));
+    // // sphere.modelMatrix = glm::scale(sphere.modelMatrix, glm::vec3(0.8f, 0.8f, 0.8f));
+    // sphereNormalMatrix = glm::inverseTranspose(glm::mat3(view*sphere.modelMatrix));
+    // glUniformMatrix4fv(glGetUniformLocation(shader.Program, "modelMatrix"), 1, GL_FALSE, glm::value_ptr(sphere.modelMatrix));
+    // glUniformMatrix3fv(glGetUniformLocation(shader.Program, "normalMatrix"), 1, GL_FALSE, glm::value_ptr(sphereNormalMatrix));
 
-    // we render the sphere
-    sphere.objectModel->Draw();
+    // // we render the sphere
+    // sphere.objectModel->Draw();
 
 
     // BUNNY
     // we reset to identity at each frame
     // bunny.prevModelMatrix = bunny.modelMatrix;
-    // bunny.modelMatrix = glm::mat4(1.0f);
-    bunnyNormalMatrix = glm::mat3(1.0f);
-    // bunny.modelMatrix = glm::translate(bunny.modelMatrix, glm::vec3(4.0f, 1.0f, 0.0f));
-    // // bunny.modelMatrix = glm::translate(bunny.modelMatrix, glm::vec3(0.0f, 1.0f, 1.0f));
-    // bunny.modelMatrix = glm::rotate(bunny.modelMatrix, glm::radians(orientationY), glm::vec3(0.0f, 1.0f, 0.0f));
-    // bunny.modelMatrix = glm::scale(bunny.modelMatrix, glm::vec3(0.3f, 0.3f, 0.3f));
-    bunnyNormalMatrix = glm::inverseTranspose(glm::mat3(view*bunny.modelMatrix));
-    glUniformMatrix4fv(glGetUniformLocation(shader.Program, "modelMatrix"), 1, GL_FALSE, glm::value_ptr(bunny.modelMatrix));
-    glUniformMatrix3fv(glGetUniformLocation(shader.Program, "normalMatrix"), 1, GL_FALSE, glm::value_ptr(bunnyNormalMatrix));
+    // // bunny.modelMatrix = glm::mat4(1.0f);
+    // bunnyNormalMatrix = glm::mat3(1.0f);
+    // // bunny.modelMatrix = glm::translate(bunny.modelMatrix, glm::vec3(4.0f, 1.0f, 0.0f));
+    // // // bunny.modelMatrix = glm::translate(bunny.modelMatrix, glm::vec3(0.0f, 1.0f, 1.0f));
+    // // bunny.modelMatrix = glm::rotate(bunny.modelMatrix, glm::radians(orientationY), glm::vec3(0.0f, 1.0f, 0.0f));
+    // // bunny.modelMatrix = glm::scale(bunny.modelMatrix, glm::vec3(0.3f, 0.3f, 0.3f));
+    // bunnyNormalMatrix = glm::inverseTranspose(glm::mat3(view*bunny.modelMatrix));
+    // glUniformMatrix4fv(glGetUniformLocation(shader.Program, "modelMatrix"), 1, GL_FALSE, glm::value_ptr(bunny.modelMatrix));
+    // glUniformMatrix3fv(glGetUniformLocation(shader.Program, "normalMatrix"), 1, GL_FALSE, glm::value_ptr(bunnyNormalMatrix));
 
-    // we render the bunny
-    bunny.objectModel->Draw();
+    // // we render the bunny
+    // bunny.objectModel->Draw();
 
     // // CUBE
     // // we reset to identity at each frame
@@ -967,11 +1009,11 @@ void RenderObjects(Shader &shader, Model &planeModel, ObstacleObject &sphere, Ob
     // cubeModel.Draw();
 
     // BABY YODA
-    babyyodaNormalMatrix = glm::inverseTranspose(view * babyYoda.modelMatrix);
-    glUniformMatrix4fv(glGetUniformLocation(shader.Program, "modelMatrix"), 1, GL_FALSE, glm::value_ptr(babyYoda.modelMatrix));
-    glUniformMatrix3fv(glGetUniformLocation(shader.Program, "normalMatrix"), 1, GL_FALSE, glm::value_ptr(babyyodaNormalMatrix));
+    // babyyodaNormalMatrix = glm::inverseTranspose(view * babyYoda.modelMatrix);
+    // glUniformMatrix4fv(glGetUniformLocation(shader.Program, "modelMatrix"), 1, GL_FALSE, glm::value_ptr(babyYoda.modelMatrix));
+    // glUniformMatrix3fv(glGetUniformLocation(shader.Program, "normalMatrix"), 1, GL_FALSE, glm::value_ptr(babyyodaNormalMatrix));
 
-    babyYoda.objectModel->Draw();
+    // babyYoda.objectModel->Draw();
 
     glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, 0);
     glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_2D, 0);
@@ -1127,14 +1169,14 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
         }
     }
 
-    if (key == GLFW_KEY_RIGHT && (action == GLFW_PRESS || action == GLFW_REPEAT))
+    if (key == GLFW_KEY_RIGHT && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mouseLock)
     {
         spin_speed += 5;
         std::cout << "Spin speed: " << spin_speed << std::endl;
         spin_speed = glm::max(spin_speed, 0.0f);
     }
 
-    if (key == GLFW_KEY_LEFT && (action == GLFW_PRESS || action == GLFW_REPEAT))
+    if (key == GLFW_KEY_LEFT && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mouseLock)
     {
         spin_speed -= 5;
         std::cout << "Spin speed: " << spin_speed << std::endl;

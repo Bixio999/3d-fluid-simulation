@@ -13,6 +13,8 @@
 #include <utils/shader.h>
 #include <utils/model.h>
 
+#include "../obstacle_object.h"
+
 enum TargetFluid {
     GAS,
     LIQUID
@@ -97,6 +99,9 @@ extern GLfloat spin_speed;
 extern vector<Force*> externalForces;
 extern vector<FluidQuantity*> fluidQuantities;
 
+// data structure for obstacle objects interaction
+extern vector<ObstacleObject*> obstacleObjects;
+
 /////////////////////////
 
 void DrawUI();
@@ -112,3 +117,5 @@ void ExpandUI();
 void ResetParameters();
 
 void ResetForcesAndDyes(TargetFluid target);
+
+void CreateObstacleObject(const string& highPolyPath, const string& lowPolyPath, const char* name, glm::vec3 position = glm::vec3(0.0), glm::vec3 scale = glm::vec3(1.0));
