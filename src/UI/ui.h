@@ -41,8 +41,8 @@ struct Force
     GLfloat strength;
 };
 
-// structure to define a fluid quantity (gas or liquid)
-struct FluidQuantity
+// structure to define a fluid emitter (gas or liquid)
+struct FluidEmitter
 {
     glm::vec3 position;
     GLfloat radius;
@@ -104,7 +104,7 @@ extern GLfloat spin_speed;
 
 // Custom fluid interaction
 extern vector<Force*> externalForces;
-extern vector<FluidQuantity*> fluidQuantities;
+extern vector<FluidEmitter*> fluidQuantities;
 
 // data structure for user-defined obstacle objects interaction
 extern vector<ObstacleObject*> obstacleObjects;
@@ -124,7 +124,7 @@ void ExpandUI();
 
 void ResetParameters();
 
-void ResetForcesAndDyes(TargetFluid target);
+void ResetForcesAndEmitters(TargetFluid target);
 
 /////////////////////////////////////////////
 // we define the functions used to manage the obstacle objects

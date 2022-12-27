@@ -259,7 +259,7 @@ int main()
     
     }
 
-    ResetForcesAndDyes(currTarget);
+    ResetForcesAndEmitters(currTarget);
 
     // we create the Shader Program for the creation of the shadow map
     Shader shadow_shader("src/shaders/19_shadowmap.vert", "src/shaders/20_shadowmap.frag");
@@ -495,7 +495,7 @@ int main()
                 temperature_slab = CreateSlab(GRID_WIDTH, GRID_HEIGHT, GRID_DEPTH, 1);
             }
 
-            ResetForcesAndDyes(currTarget);
+            ResetForcesAndEmitters(currTarget);
         }
 
         // Check is an I/O event is happening
@@ -619,7 +619,7 @@ int main()
 
             if (currTarget == GAS)
             {
-                for_each(fluidQuantities.begin(), fluidQuantities.end(), [&](FluidQuantity* fluidQuantity)
+                for_each(fluidQuantities.begin(), fluidQuantities.end(), [&](FluidEmitter* fluidQuantity)
                 {
                     if (fluidQuantity->radius > 0.0f)
                     {
@@ -640,7 +640,7 @@ int main()
             }
             else
             {
-                for_each(fluidQuantities.begin(), fluidQuantities.end(), [&](FluidQuantity* fluidQuantity)
+                for_each(fluidQuantities.begin(), fluidQuantities.end(), [&](FluidEmitter* fluidQuantity)
                 {
                     if (fluidQuantity->radius > 0.0f)
                     {

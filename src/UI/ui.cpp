@@ -60,21 +60,14 @@ GLfloat spin_speed;
 
 // Custom fluid interaction
 vector<Force*> externalForces = vector<Force*>();
-vector<FluidQuantity*> fluidQuantities = vector<FluidQuantity*>();
+vector<FluidEmitter*> fluidQuantities = vector<FluidEmitter*>();
 
 // data structure for obstacle objects interaction
 vector<ObstacleObject*> obstacleObjects = vector<ObstacleObject*>();
 
 //////////////////////////
 
-void InitFrame()
-{
-    // Start the Dear ImGui frame
-    ImGui_ImplOpenGL3_NewFrame();
-    ImGui_ImplGlfw_NewFrame();
-    ImGui::NewFrame();
-}
-
+// Reset parameters to default values
 void ResetParameters()
 {
     // parameters for simulation time step
@@ -95,7 +88,7 @@ void ResetParameters()
     levelSetInitialHeight = 0.4f;
 
     // Liquid parameters
-    gravityAcceleration = 3.0f;
+    gravityAcceleration = 9.0f;
     gravityLevelSetThreshold = 1.0f;
 
     // Jacobi pressure solver iterations
@@ -127,7 +120,8 @@ void ResetParameters()
     spin_speed = 60.0f;
 }
 
-void ResetForcesAndDyes(TargetFluid target)
+// Reset the forces and fluid quantities
+void ResetForcesAndEmitters(TargetFluid target)
 {
     externalForces.clear();
     fluidQuantities.clear();
@@ -143,7 +137,7 @@ void ResetForcesAndDyes(TargetFluid target)
                                         2.0f});
 
         // we add the fluid for gas simulation
-        fluidQuantities.push_back(new FluidQuantity {glm::vec3(GRID_WIDTH / 2.0f, GRID_HEIGHT * 0.4f, GRID_DEPTH * 0.7f), 
+        fluidQuantities.push_back(new FluidEmitter {glm::vec3(GRID_WIDTH / 2.0f, GRID_HEIGHT * 0.4f, GRID_DEPTH * 0.7f), 
                                         5.0f});
     }
     else
@@ -162,65 +156,90 @@ void ResetForcesAndDyes(TargetFluid target)
                                         2.0f});
 
         // we add the fluid for liquid simulation
-        fluidQuantities.push_back(new FluidQuantity {glm::vec3(GRID_WIDTH / 2.0f, GRID_HEIGHT * 0.8f, GRID_DEPTH / 2.0f), 
+        fluidQuantities.push_back(new FluidEmitter {glm::vec3(GRID_WIDTH / 2.0f, GRID_HEIGHT * 0.8f, GRID_DEPTH / 2.0f), 
                                         3.0f});
     }
 }
 
+//////////////////////////
+// we define the GUI for the simulation parameters
+
+// draw the GUI for general fluid simulation parameters
 void ShowSimulationProperties()
 {
+    // header
     if (!ImGui::CollapsingHeader("Simulation Properties", ImGuiTreeNodeFlags_DefaultOpen))
         return;
 
+    // simulation tree 
     ImGui::SetNextItemOpen(true, ImGuiCond_Once);
     if (ImGui::TreeNode("Simulation"))
     {
+        // simulation time step
         ImGui::SliderFloat("Time Step", &timeStep, 0.0f, 1.0f);
-        timeStep = std::max(timeStep, 0.0f);
+        timeStep = std::max(timeStep, 0.0f); // we do not allow negative time steps
 
-        static int simFramerate = 60;
+        // simulation framerate
+        static int simFramerate = 60; // we define the number of frames per second
         ImGui::SliderInt("Framerate", &simFramerate, 0, 1000);
-        simulationFramerate = 1.0f / simFramerate;
+        simulationFramerate = 1.0f / simFramerate; // we compute the simulation framerate in seconds
 
         ImGui::TreePop();
     }
 
+    // velocity solver tree
     ImGui::SetNextItemOpen(true, ImGuiCond_Once);
     if (ImGui::TreeNode("Velocity Solver"))
     {
+        // velocity dissipation
         ImGui::SliderFloat("Dissipation", &velocityDissipation, 0.0f, 1.0f);
+
+        // pressure solver iterations
         ImGui::SliderInt("Pressure Iterations", (int*)&pressureIterations, 0, 100);
 
         ImGui::TreePop();
     }
 }
 
+// draw the GUI for the liquid simulation parameters
 void ShowLiquidParameters()
 {
+    // header
     if (!ImGui::CollapsingHeader("Liquid Parameters", ImGuiTreeNodeFlags_DefaultOpen))
         return;
 
+    // level set tree
     if (ImGui::TreeNode("Level Set"))
     {
-        ImGui::SliderFloat("Initial Height", &levelSetInitialHeight, 0.0f, 1.0f);
+        // level set damping factor
         ImGui::SliderFloat("Damping Factor", &levelSetDampingFactor, 0.0f, 1.0f);
+
+        // level set equilibrium height
         ImGui::SliderFloat("Equilibrium Height", &levelSetEquilibriumHeight, 0.0f, 1.0f);
+
         ImGui::TreePop();
     }
 
+    // gravity tree
     if (ImGui::TreeNode("Gravity"))
     {
-        ImGui::SliderFloat("Acceleration Factor", &gravityAcceleration, 0.0f, 10.0f);
+        // gravity acceleration
+        ImGui::SliderFloat("Acceleration Factor", &gravityAcceleration, 0.0f, 15.0f);
+
+        // gravity level set threshold
         ImGui::SliderFloat("Level Set Threshold", &gravityLevelSetThreshold, 0.0f, 10.0f);
+
         ImGui::TreePop();
     }
 
+    // post processing tree
     if (ImGui::TreeNode("Post-process effect"))
     {
+        // available post-process effects
         const char* items[] = {"None", "Blur", "DeNoise"};
-        // static int item_current = 0;
         ImGui::Combo("Post-process effect", (int*) &liquidEffect, items, IM_ARRAYSIZE(items));
 
+        // draw the parameters for the selected post-process effect
         switch (liquidEffect)
         {
             case BLUR: // Blur
@@ -241,19 +260,29 @@ void ShowLiquidParameters()
     }
 }
 
+// draw the GUI for the gas simulation parameters
 void ShowGasParameters()
 {
+    // header
     if (!ImGui::CollapsingHeader("Gas Parameters", ImGuiTreeNodeFlags_DefaultOpen))
         return;
 
+    // buoyancy tree
     if (ImGui::TreeNode("Buoyancy"))
     {
-        ImGui::SliderFloat("Buoyancy damping factor", &dampingBuoyancy, 0.0f, 10.0f);
-        ImGui::SliderFloat("Weight Factor", &ambientWeight, 0.0f, 10.0f);
-        ImGui::SliderFloat("Ambient Temperature", &ambientTemperature, 0.0f, 10.0f);
+        // damping factor
+        ImGui::SliderFloat("Buoyancy damping factor", &dampingBuoyancy, 0.0f, 1.0f);
+
+        // gas weight
+        ImGui::SliderFloat("Weight Factor", &ambientWeight, 0.0f, 1.0f);
+
+        // ambient temperature
+        ImGui::SliderFloat("Ambient Temperature", &ambientTemperature, 0.0f, 1.0f);
+
         ImGui::TreePop();
     }
 
+    // dissipations tree
     if (ImGui::TreeNode("Dissipation"))
     {
         ImGui::SliderFloat("Temperature Dissipation", &temperatureDissipation, 0.0f, 1.0f);
@@ -263,27 +292,31 @@ void ShowGasParameters()
     }
 }
 
+// draw the GUI for the creation and manipulation of external forces
 void ShowStaticForceParameters()
 {
+    // header
     if (!ImGui::CollapsingHeader("Static Force Parameters"))
         return;
 
+    // draw the force parameters for each force currently defined
     for (int i = 0; i < externalForces.size(); i++)
     {
+        // we create a tree node for each force
         std::string s = "Force " + std::to_string(i);
         if (ImGui::TreeNode(s.c_str()))
         {
-            // glm::vec3 v = externalForces[i].position;
-            // float val[3] = {v.x, v.y, v.z};
+            // force position
             ImGui::SliderFloat3("Position", glm::value_ptr(externalForces[i]->position), 0.0f, GRID_WIDTH);
-            // externalForces[i].position = glm::vec3(val[0], val[1], val[2]);
 
-            // v = externalForces[i].direction;
+            // force direction
             ImGui::SliderFloat3("Direction", glm::value_ptr(externalForces[i]->direction), -1.0, 1.0f);
 
-            ImGui::SliderFloat("Strength", &(externalForces[i]->strength), 0.0f, 10.0f);
-            ImGui::SliderFloat("Radius", &(externalForces[i]->radius), 0.0f, 10.0f);
+            // force strength and radius
+            ImGui::SliderFloat("Strength", &(externalForces[i]->strength), 0.0f, 20.0f);
+            ImGui::SliderFloat("Radius", &(externalForces[i]->radius), 0.0f, 20.0f);
 
+            // delete button
             if (ImGui::Button("Delete"))
             {
                 Force* f = externalForces[i];
@@ -295,30 +328,37 @@ void ShowStaticForceParameters()
         }
     }
 
+    // create a new force
     if (ImGui::Button("Add Force"))
     {
         externalForces.push_back(new Force{ glm::vec3(0.0f), glm::vec3(0.0f), 0.0f, 0.0f });
     }
 }
 
-void ShowStaticFluidDyeParameter()
+// draw the GUI for the creation and manipulation of static fluid emitters
+void ShowStaticFluidEmitterParameter()
 {
-    if (!ImGui::CollapsingHeader("Static Fluid Dye Parameters"))
+    // header
+    if (!ImGui::CollapsingHeader("Static Fluid Emitter Parameters"))
         return;
 
+    // draw the fluid emitter parameters for each emitter currently defined
     for (int i = 0; i < fluidQuantities.size(); i++)
     {
-        std::string s = "Dye " + std::to_string(i);
+        // we create a tree node for each emitter
+        std::string s = "Emitter " + std::to_string(i);
         if (ImGui::TreeNode(s.c_str()))
         {
-            // glm::vec3 v = fluidQuantities[i]->position;
+            // emitter position
             ImGui::SliderFloat3("Position", glm::value_ptr(fluidQuantities[i]->position), 0.0f, GRID_WIDTH);
 
+            // emitter radius
             ImGui::SliderFloat("Radius", &(fluidQuantities[i]->radius), 0.0f, 10.0f);
 
+            // delete button
             if (ImGui::Button("Delete"))
             {
-                FluidQuantity* q = fluidQuantities[i];
+                FluidEmitter* q = fluidQuantities[i];
                 fluidQuantities.erase(fluidQuantities.begin() + i);
                 delete q;
             }
@@ -327,82 +367,62 @@ void ShowStaticFluidDyeParameter()
         }
     }
 
+    // create a new emitter
     if (ImGui::Button("Add Fluid"))
     {
-        fluidQuantities.push_back(new FluidQuantity { glm::vec3(0.0f), 0.0f});
+        fluidQuantities.push_back(new FluidEmitter { glm::vec3(0.0f), 0.0f});
     }
 }
 
-void ShowObstacleObjectsControls()
+// draw the GUI popup window for the creation of an obstacle objects
+void ShowObstacleObjectCreationWindow()
 {
-    if (!ImGui::CollapsingHeader("Obstacle Objects"))
-        return;
-
-    for (int i = 0; i < obstacleObjects.size(); i++)
-    {
-        if (ImGui::TreeNode(obstacleObjects[i]->name.c_str()))
-        {
-            ImGui::Checkbox("Enabled", &(obstacleObjects[i]->isActive));
-
-            ImGui::SliderFloat3("Position", glm::value_ptr(obstacleObjects[i]->position), -10.0f, 10.0f);
-
-            ImGui::SliderFloat3("Scale", glm::value_ptr(obstacleObjects[i]->scale), 0.0f, 10.0f);
-
-            if (ImGui::Button("Delete"))
-            {
-                ObstacleObject* o = obstacleObjects[i];
-                obstacleObjects.erase(obstacleObjects.begin() + i); 
-
-                // delete o;
-                o->~ObstacleObject();
-            }
-
-            ImGui::TreePop();
-        }
-    }
-
-    if (ImGui::Button("Add Obstacle"))
-    {
-        ImGui::OpenPopup("Add new obstacle");
-        // obstacleObjects.push_back(new ObstacleObject { glm::vec3(0.0f), 0.0f});
-    }
-
+    // center the window
     ImVec2 center = ImGui::GetMainViewport()->GetCenter();
     ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
 
+    // create the window
     if (ImGui::BeginPopupModal("Add new obstacle", NULL, ImGuiWindowFlags_AlwaysAutoResize))
     {
+        // display the creation description
         ImGui::Text("Select an object to add as an obstacle by selecting its\nhigh poly mesh for scene rendering and low poly mesh for\nsimulation obstacle rendering. ");
         ImGui::Separator();
 
+        // select the object to add from the predefined objects list
         const char* items[] = { "New import", "Cube", "Sphere", "Bunny", "Baby Yoda" };
         static int item_current = 0;
         ImGui::Combo("Object", &item_current, items, IM_ARRAYSIZE(items));
 
         ImGui::Separator();
 
+        // if the user selects a new object to import, display the input fields for the object name and the paths to the high and low poly meshes
         static char object_name[50], high_poly_mesh_path[256], low_poly_mesh_path[256];
         if (item_current == 0)
         {
+            // input field for the object name
             ImGui::InputText("Obstacle object name", object_name, IM_ARRAYSIZE(object_name), ImGuiInputTextFlags_CharsNoBlank);
 
+            // window resize constraints for the file browser
             ImVec2 maxSize = ImGui::GetMainViewport()->Size;  // The full display area
-            // ImVec2 minSize = maxSize * 0.3f;  // Half the display area
             ImVec2 minSize = ImVec2(maxSize.x * 0.3f, maxSize.y * 0.3f);  // A third of the display area
 
             ImGui::Spacing();
 
             //////////////////////////////////////////
 
+            // input field for the path to the high poly mesh
             ImGui::InputText("##highpolyPath", high_poly_mesh_path, IM_ARRAYSIZE(high_poly_mesh_path), ImGuiInputTextFlags_CharsNoBlank);
             ImGui::SameLine();
             if (ImGui::Button("Browse##HighPoly"))
             {
+                // open the file browser
                 ImGuiFileDialog::Instance()->OpenDialog("ChooseHighPolyMesh", "Choose High Poly Mesh", ".obj", ".");
             }
 
+            // display the file browser
             if (ImGuiFileDialog::Instance()->Display("ChooseHighPolyMesh", ImGuiWindowFlags_NoCollapse, minSize, maxSize))
             {
+                // if the user selects a file, copy the path to the high poly mesh path input field
                 if (ImGuiFileDialog::Instance()->IsOk())
                 {
                     std::string filePathName = ImGuiFileDialog::Instance()->GetFilePathName();
@@ -416,17 +436,20 @@ void ShowObstacleObjectsControls()
 
             //////////////////////////////////////////
 
+            // input field for the path to the low poly mesh
             ImGui::InputText("##lowpolyPath", low_poly_mesh_path, IM_ARRAYSIZE(low_poly_mesh_path), ImGuiInputTextFlags_CharsNoBlank);
             ImGui::SameLine();
             if (ImGui::Button("Browse##LowPoly"))
             {
+                // open the file browser
                 ImGuiFileDialog::Instance()->OpenDialog("ChooseLowPolyMesh", "Choose Low Poly Mesh", ".obj", ".");
-                std::cout << "ChooseLowPolyMesh" << std::endl;
             }
             ImGui::SameLine(); ImGui::Text("Low poly mesh path");
 
+            // display the file browser
             if (ImGuiFileDialog::Instance()->Display("ChooseLowPolyMesh", ImGuiWindowFlags_NoCollapse, minSize, maxSize))
             {
+                // if the user selects a file, copy the path to the low poly mesh path input field
                 if (ImGuiFileDialog::Instance()->IsOk())
                 {
                     std::string filePathName = ImGuiFileDialog::Instance()->GetFilePathName();
@@ -437,7 +460,7 @@ void ShowObstacleObjectsControls()
             ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing();
         }
 
-
+        // prevent object creation if the user tries to add an object without filling in all the fields
         if (ImGui::Button("Add", ImVec2(120, 0))) 
         { 
             if (item_current == 0)
@@ -446,13 +469,21 @@ void ShowObstacleObjectsControls()
                 {
                     ImGui::OpenPopup("Error! Please fill in all fields.");
                 }
+                // if the user fills in all the fields, create the object
                 else
                 {
+                    std::cout << "Creating new obstacle object: " << object_name << std::endl;
                     CreateObstacleObject(high_poly_mesh_path, low_poly_mesh_path, object_name);
+
+                    // reset the input fields
+                    memset(object_name, 0, sizeof(object_name));
+                    memset(high_poly_mesh_path, 0, sizeof(high_poly_mesh_path));
+                    memset(low_poly_mesh_path, 0, sizeof(low_poly_mesh_path));
+
                     ImGui::CloseCurrentPopup();
                 }
             }
-            else
+            else // if the user selects a predefined object, create it
             {
                 switch (item_current)
                 {
@@ -482,17 +513,65 @@ void ShowObstacleObjectsControls()
     }
 }
 
+// draw the GUI for the creation and manipulation of obstacle objects
+void ShowObstacleObjectsControls()
+{
+    // header
+    if (!ImGui::CollapsingHeader("Obstacle Objects"))
+        return;
+
+    // draw the obstacle object parameters for each object currently defined
+    for (int i = 0; i < obstacleObjects.size(); i++)
+    {
+        // we create a tree node for each object
+        if (ImGui::TreeNode(obstacleObjects[i]->name.c_str()))
+        {
+            // enable or disable the object
+            ImGui::Checkbox("Enabled", &(obstacleObjects[i]->isActive));
+
+            // object position and scale
+            ImGui::SliderFloat3("Position", glm::value_ptr(obstacleObjects[i]->position), -10.0f, 10.0f);
+            ImGui::SliderFloat3("Scale", glm::value_ptr(obstacleObjects[i]->scale), 0.0f, 10.0f);
+
+            // delete button
+            if (ImGui::Button("Delete"))
+            {
+                ObstacleObject* o = obstacleObjects[i];
+                obstacleObjects.erase(obstacleObjects.begin() + i); 
+
+                delete o;
+            }
+
+            ImGui::TreePop();
+        }
+    }
+
+    // create a new object
+    if (ImGui::Button("Add Obstacle"))
+    {
+        // draw the popup window
+        ImGui::OpenPopup("Add new obstacle");
+    }
+
+    // draw the popup window for the creation of a new obstacle object
+    ShowObstacleObjectCreationWindow();
+}
+
+// draw the application GUI
 void CustomUI()
 {
+    // define the viewport
     const ImGuiViewport* main_viewport = ImGui::GetMainViewport();
     ImGui::SetNextWindowPos(ImVec2(main_viewport->WorkPos.x, main_viewport->WorkPos.y), ImGuiCond_FirstUseEver);
 
+    // define the window flags
     int windowFlags =   ImGuiWindowFlags_NoMove  
                       | ImGuiWindowFlags_AlwaysAutoResize
                       | ImGuiWindowFlags_AlwaysVerticalScrollbar
                       ;
 
-    ImGui::SetNextWindowCollapsed(false, ImGuiCond_FirstUseEver);
+    // draw the main window
+    ImGui::SetNextWindowCollapsed(false, ImGuiCond_FirstUseEver); // open the window at the start of the application
     if (!ImGui::Begin("3D Fluid Simulation", NULL, windowFlags)) 
     {
         ImGui::End();
@@ -500,7 +579,8 @@ void CustomUI()
     }
 
     ////////////////////////////////
-    
+    // draw the simulation target controls and reset options
+
     ImGui::Text("Target fluid:");
     ImGui::RadioButton("Gas",(int*) &targetFluid, 0); ImGui::SameLine();
     ImGui::RadioButton("Liquid",(int*) &targetFluid, 1); 
@@ -513,13 +593,15 @@ void CustomUI()
     } ImGui::SameLine();
 
     if (ImGui::Button("Reset forces and dyes"))
-        ResetForcesAndDyes(targetFluid);
+        ResetForcesAndEmitters(targetFluid);
 
     ////////////////////////////////
+    // draw the simulation parameters
 
     ShowSimulationProperties();
 
     ////////////////////////////////
+    // draw the fluid parameters
 
     if (targetFluid == GAS)
         ShowGasParameters();
@@ -527,12 +609,14 @@ void CustomUI()
         ShowLiquidParameters();
 
     ////////////////////////////////
+    // draw the fluid and force emitter parameters
 
     ShowStaticForceParameters();
 
-    ShowStaticFluidDyeParameter();
+    ShowStaticFluidEmitterParameter();
 
     ////////////////////////////////
+    // draw the obstacle object controls
 
     ShowObstacleObjectsControls();
 
@@ -541,6 +625,16 @@ void CustomUI()
     ImGui::End();
 }
 
+// initialize the Dear ImGui frame
+void InitFrame()
+{
+    // Start the Dear ImGui frame
+    ImGui_ImplOpenGL3_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
+    ImGui::NewFrame();
+}
+
+// draw the GUI
 void DrawUI()
 {
     InitFrame();
@@ -549,22 +643,14 @@ void DrawUI()
     // ImGui::ShowDemoWindow();
 }
 
-void CollapseUI()
-{
-    ImGui::SetWindowCollapsed("3D Fluid Simulation", true);
-}
-
-void ExpandUI()
-{
-    ImGui::SetWindowCollapsed("3D Fluid Simulation", false);
-}
-
+// render the GUI
 void RenderUI()
 {
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 
+// initialize the Dear ImGui library
 void InitUI(GLFWwindow* window)
 {
     // Setup Dear ImGui context
@@ -580,27 +666,49 @@ void InitUI(GLFWwindow* window)
     ImGui_ImplOpenGL3_Init("#version 410");
 }
 
+// api to collapse the GUI
+void CollapseUI()
+{
+    ImGui::SetWindowCollapsed("3D Fluid Simulation", true);
+}
+
+// api to expand the GUI
+void ExpandUI()
+{
+    ImGui::SetWindowCollapsed("3D Fluid Simulation", false);
+}
+
+////////////////////////////
+// Obstacle Object creation
+
+// create a new obstacle object and add it to the list of obstacle objects
 void CreateObstacleObject(const string& highPolyPath, const string& lowPolyPath, const char* name, glm::vec3 position, glm::vec3 scale)
 {
+    // create the high poly model for scene rendering
     Model* highPoly = new Model(highPolyPath);
     Model* lowPoly;
 
+    // check if the low poly model is the same as the high poly model
     if (highPolyPath == lowPolyPath)
         lowPoly = highPoly;
     else
         lowPoly = new Model(lowPolyPath);
 
+    // setup the name of the object
     string n;
     if (name)
         n = name;
     else
         n = "Obstacle " + std::to_string(obstacleObjects.size() + 1);
 
+    // create the obstacle object
     ObstacleObject *obj = new ObstacleObject { glm::mat4(1.0), glm::mat4(1.0), highPoly, lowPoly, position, scale, n, true };
 
+    // add the object to the list of obstacle objects
     obstacleObjects.push_back(obj);
 }
 
+// create a new obstacle object with the same model for scene and simulation rendering, and add it to the list of obstacle objects
 void CreateObstacleObject(const string& highPolyPath, const char* name, glm::vec3 position, glm::vec3 scale)
 {
     CreateObstacleObject(highPolyPath, highPolyPath, name, position, scale);
