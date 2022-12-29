@@ -297,7 +297,9 @@ void main()
             break;
     }
 
-    alpha = clamp(alpha, 0.0, 0.8);
+    // alpha = clamp(alpha, 0.0, 0.8);
+    alpha = min(alpha, 0.8);
+
     float lightingFactor = 0.6;
 
     if (alpha > 0.0)
@@ -329,6 +331,7 @@ void main()
 
         // finalColor = vec4(fluidColor, 1.0);
 
+        alpha = max(alpha, 0.1);
         vec3 color = fluidColor * alpha + refractionColor * (1.0 - alpha);
 
         finalColor = vec4(color, 1.0);
