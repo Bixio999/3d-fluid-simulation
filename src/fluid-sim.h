@@ -47,7 +47,7 @@ struct ObstacleSlab
 };
 
 /////////////////////////////////////////////
-// we define the utility functions
+// we define the utility functions for the simulation 
 
 // create a simulation grid slab
 Slab CreateSlab(GLuint width, GLuint height, GLuint depth, GLushort dimensions);
