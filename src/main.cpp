@@ -1,34 +1,24 @@
 /*
-Es06a: shadow rendering with shadow mapping technique - PART 2
-- swapping (pressing keys from 1 to 3) between basic shadow mapping (with a lot of aliasing/shadow "acne"), adaptive bias to avoid shadow "acne", and PCF to smooth shadow borders
-- conclusion of Es05c, with object shaders now using the shadow map computed in the first rendering step
+This file is the main code of the 3D Fluid Simulation project. This project is based on the paper 
+"Real-Time Simulation and Rendering of 3D Fluids" by Keenan Crane, Ignacio Llamas and Sarah Tariq, 
+published in GPU Gems 3 (2008). The paper is available at:
+ https://developer.nvidia.com/gpugems/gpugems3/part-v-physics-simulation/chapter-30-real-time-simulation-and-rendering-3d-fluids
 
-N.B. 1)
-In this example we use Shaders Subroutines to do shader swapping:
-http://www.geeks3d.com/20140701/opengl-4-shader-subroutines-introduction-3d-programming-tutorial/
-https://www.lighthouse3d.com/tutorials/glsl-tutorial/subroutines/
-https://www.khronos.org/opengl/wiki/Shader_Subroutine
+author: Vincenzo Lombardo - the structure of the code in this file is based on the code 
+developed by Davide Gadia for the course of Real-Time Graphics Programming, Universita' degli Studi di Milano
 
-In other cases, an alternative could be to consider Separate Shader Objects:
-https://www.informit.com/articles/article.aspx?p=2731929&seqNum=7
-https://www.khronos.org/opengl/wiki/Shader_Compilation#Separate_programs
-https://riptutorial.com/opengl/example/26979/load-separable-shader-in-cplusplus
-
-N.B. 2) the application considers only a directional light. In case of more lights, and/or of different nature, the code must be modifies
-
-N.B. 3)
-see :
-https://learnopengl.com/Advanced-Lighting/Shadows/Shadow-Mapping
-http://www.opengl-tutorial.org/intermediate-tutorials/tutorial-16-shadow-mapping/#basic-shadowmap
-https://docs.microsoft.com/en-us/windows/desktop/dxtecharts/common-techniques-to-improve-shadow-depth-maps
-for further details
-
-
-author: Davide Gadia
+------------------------------------------------------------
 
 Real-Time Graphics Programming - a.a. 2021/2022
 Master degree in Computer Science
 Universita' degli Studi di Milano
+
+------------------------------------------------------------
+
+In this file we define the main function of the application. The main function is responsible for the initialization of the application,
+the main loop, and the cleanup of the application. The main loop is responsible for the rendering of the scene, the update of the simulation,
+and the management of the user input. The main function is also responsible for the initialization, drawing and rendering calls of the GUI, 
+through the functions defined in the file src/UI/ui.h.
 */
 
 /*
@@ -93,11 +83,7 @@ positive Z axis points "outside" the screen
 // we include the UI functions
 #include "UI/ui.h"
 
-// dimensions of application's window
-GLuint screenWidth = 1200, screenHeight = 900;
-
-// the rendering steps used in the application
-enum render_passes{ SHADOWMAP, RENDER};
+///////////////////////// FUNCTIONS DECLARATION /////////////////////////
 
 // callback functions for keyboard and mouse events
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode);
@@ -105,18 +91,13 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 // if one of the WASD keys is pressed, we call the corresponding method of the Camera class
 void apply_camera_movements();
 
-// index of the current shader subroutine (= 0 in the beginning)
-GLuint current_subroutine = 2;
-// a vector for all the shader subroutines names used and swapped in the application
-vector<std::string> shaders;
-
 // the name of the subroutines are searched in the shaders, and placed in the shaders vector (to allow shaders swapping)
 void SetupShader(int shader_program);
 
 // print on console the name of current shader subroutine
 void PrintCurrentShader(int subroutine);
 
-// in this application, we have isolated the models rendering using a function, which will be called in each rendering step
+// in this application, we have isolated the scene models rendering using a function, which will be called in each rendering step
 void RenderObjects(Shader &shader, Model &planeModel, GLint render_pass, GLuint depthMap);
 
 // load image from disk and create an OpenGL texture
@@ -126,6 +107,18 @@ GLint LoadTexture(const char* path);
 void CreateRenderShader(TargetFluid target);
 void CreateFluidShaders(TargetFluid target);
 
+///////////////////////// GLOBAL VARIABLES /////////////////////////
+
+// dimensions of application's window
+GLuint screenWidth = 1200, screenHeight = 900;
+
+// the rendering steps used in the application for objects shadow map rendering
+enum render_passes{ SHADOWMAP, RENDER};
+// index of the current shader subroutine (= 0 in the beginning)
+GLuint current_subroutine = 2;
+// a vector for all the shader subroutines names used and swapped in the application
+vector<std::string> shaders;
+
 // we initialize an array of booleans for each keyboard key
 bool keys[1024];
 
@@ -133,6 +126,8 @@ bool keys[1024];
 GLfloat lastX, lastY;
 // when rendering the first frame, we do not have a "previous state" for the mouse, so we need to manage this situation
 bool firstMouse = true;
+// Gamemode parameters
+GLboolean mouseUnlock = GL_FALSE;
 
 // parameters for time calculation (for animations)
 GLfloat deltaTime = 0.0f;
@@ -140,9 +135,6 @@ GLfloat lastFrame = 0.0f;
 
 // parameters for simulation time step
 GLfloat lastSimulationUpdate = 0.0f;
-
-// Gamemode parameters
-GLboolean mouseLock = GL_FALSE;
 
 // boolean to start/stop animated rotation on Y angle
 GLboolean spinning = GL_TRUE;
@@ -153,24 +145,15 @@ GLboolean wireframe = GL_FALSE;
 // View matrix: the camera moves, so we just set to indentity now
 glm::mat4 view = glm::mat4(1.0f);
 
-// Model and Normal transformation matrices for the objects in the scene: we set to identity
-// glm::mat4 sphereModelMatrix = glm::mat4(1.0f);
-glm::mat3 sphereNormalMatrix = glm::mat3(1.0f);
-glm::mat4 cubeModelMatrix = glm::mat4(1.0f);
-glm::mat3 cubeNormalMatrix = glm::mat3(1.0f);
-// glm::mat4 bunnyModelMatrix = glm::mat4(1.0f);
-glm::mat3 bunnyNormalMatrix = glm::mat3(1.0f);
-glm::mat4 planeModelMatrix = glm::mat4(1.0f);
-glm::mat3 planeNormalMatrix = glm::mat3(1.0f);
-glm::mat4 fluidModelMatrix = glm::mat4(1.0f);
-glm::mat3 fluidNormalMatrix = glm::mat3(1.0f);
-// glm::mat4 babyyodaModelMatrix = glm::mat4(1.0f);
-glm::mat3 babyyodaNormalMatrix = glm::mat3(1.0f);
+// Model and Normal transformation matrices for the fixed objects in the scene: we set to identity
+glm::mat4 cubeModelMatrix = glm::mat4(1.0f); // model matrix for the fluid volume
+glm::mat4 planeModelMatrix = glm::mat4(1.0f); // model matrix for the plane
+glm::mat3 planeNormalMatrix = glm::mat3(1.0f);  // normal matrix for the plane
 
 // we create a camera. We pass the initial position as a paramenter to the constructor. The last boolean tells if we want a camera "anchored" to the ground
 Camera camera(glm::vec3(0.0f, 0.0f, 7.0f), GL_FALSE);
 
-// in this example, we consider a directional light. We pass the direction of incoming light as an uniform to the shaders
+// we consider a directional light. We pass the direction of incoming light as an uniform to the shaders
 glm::vec3 lightDir0 = glm::vec3(1.0f, 1.0f, 1.0f);
 
 // weight for the diffusive component
@@ -189,7 +172,7 @@ GLfloat repeat = 1.0;
 // rotation angle on Y axis
 GLfloat orientationY;
 
-// Target fluid specific shaders
+// Target fluid exclusive shaders
 Shader *buoyancyShader, *temperatureShader, *initLiquidShader, *dampingLevelSetShader, *gravityShader;
 Shader *renderShader;
 
@@ -238,27 +221,28 @@ int main()
     int width, height;
     glfwGetFramebufferSize(window, &width, &height);
 
-    // we enable Z test
-    // glEnable(GL_DEPTH_TEST);
-
     //the "clear" color for the frame buffer
-    // glClearColor(0.26f, 0.46f, 0.98f, 1.0f);
     glClearColor(0,0,0,0);
 
+    // we set the user parameters to their default values
     ResetParameters();
 
+    // we store the current and last target fluid to handle switching between them
+    // and avoid value update during the simulation step  
     TargetFluid currTarget = targetFluid;
     TargetFluid prevTarget = currTarget;
 
+    // output to console initial the target fluid
     if (currTarget == GAS)
         std::cout << "Target fluid: GAS" << std::endl;
     else
     {
         std::cout << "Target fluid: LIQUID" << std::endl;
-        densityDissipation = 1.0f;
+        densityDissipation = 1.0f; // we set the density dissipation to 1.0f for the liquid
     
     }
 
+    // we set the initial values for forces and emitters to default
     ResetForcesAndEmitters(currTarget);
 
     // we create the Shader Program for the creation of the shadow map
@@ -304,51 +288,42 @@ int main()
     PrintCurrentShader(current_subroutine);
 
     // we load the images and store them in a vector
-    textureID.push_back(LoadTexture("textures/UV_Grid_Sm.png"));
-    textureID.push_back(LoadTexture("textures/marble-chess.jpg"));
-    // textureID.push_back(LoadTexture("textures/glass.png"));
+    textureID.push_back(LoadTexture("textures/UV_Grid_Sm.png")); // objects texture
+    textureID.push_back(LoadTexture("textures/marble-chess.jpg")); // floor texture
 
     // we load the model(s) (code of Model class is in include/utils/model.h)
-    // Model cubeModel("models/cube.obj");
-    // Model sphereModel("models/sphere.obj");
-    // Model bunnyModel("models/bunny_lp.obj");
-    Model planeModel("models/plane.obj");
-    Model cubeModel("models/cube.obj");
+    Model planeModel("models/plane.obj"); // floor
+    Model cubeModel("models/cube.obj"); // fluid volume
 
     /////////////////// CREATION OF OBSTACLES /////////////////////////////////////////////////////////////
 
-    CreateObstacleObject("models/bunny_lp.obj", "bunny", glm::vec3(4.0f, 1.0f, 0.0f), glm::vec3(0.3f, 0.3f, 0.3f));
-
-    // Model* m = new Model("models/bunny_lp.obj");
-    // ObstacleObject bunny = {glm::mat4(1.0f), glm::mat4(1.0f), m, m};
+    CreateObstacleObject("models/bunny_lp.obj", "bunny", glm::vec3(1.0f, 1.0f, 0.0f), glm::vec3(0.3f, 0.3f, 0.3f));
 
     CreateObstacleObject("models/sphere.obj", "sphere", glm::vec3(-5.0f, 1.0f, 1.0f), glm::vec3(1.0f));
-    // m = new Model("models/sphere.obj");
-    // ObstacleObject sphere = {glm::mat4(1.0f), glm::mat4(1.0f), m, m};
     
-    CreateObstacleObject("models/babyyoda.obj", "models/low-poly_babyyoda.obj", "baby yoda", glm::vec3(0.0f, 1.0f, 1.0f), glm::vec3(0.3f, 0.3f, 0.3f));
-    // ObstacleObject babyYoda = {glm::mat4(1.0f), glm::mat4(1.0f), new Model("models/babyyoda.obj"), new Model("models/low-poly_babyyoda.obj")};
+    CreateObstacleObject("models/babyyoda.obj", "models/low-poly_babyyoda.obj", "baby yoda", glm::vec3(4.0f, 1.0f, 0.0f), glm::vec3(0.3f, 0.3f, 0.3f));
 
     /////////////////// CREATION OF BUFFERS FOR THE SIMULATION GRID /////////////////////////////////////////
-    // Grid dimensions
-    // const GLuint GRID_WIDTH = 200, GRID_HEIGHT = 200, GRID_DEPTH = 200;
-    // const GLuint GRID_WIDTH = 100, GRID_HEIGHT = 100, GRID_DEPTH = 100;
 
+    // we setup the simulation grid
     SetGridSize(GRID_WIDTH, GRID_HEIGHT, GRID_DEPTH);
+
+    // we create the simulation buffers
 
     Slab velocity_slab = CreateSlab(GRID_WIDTH, GRID_HEIGHT, GRID_DEPTH, 3);
     std::cout << "Created velocity grid = {" << velocity_slab.fbo << " , " << velocity_slab.tex << "}" << std::endl;
-    Slab phi1_hat_slab = CreateSlab(GRID_WIDTH, GRID_HEIGHT, GRID_DEPTH, 3);
-    std::cout << "Created phi1_hat grid = {" << phi1_hat_slab.fbo << " , " << phi1_hat_slab.tex << "}" << std::endl;
-    Slab phi2_hat_slab = CreateSlab(GRID_WIDTH, GRID_HEIGHT, GRID_DEPTH, 3);
-    std::cout << "Created phi2_hat grid = {" << phi2_hat_slab.fbo << " , " << phi2_hat_slab.tex << "}" << std::endl;
-
     Slab pressure_slab = CreateSlab(GRID_WIDTH, GRID_HEIGHT, GRID_DEPTH, 1);
     std::cout << "Created pressure grid = {" << pressure_slab.fbo << " , " << pressure_slab.tex << "}" << std::endl;
     Slab divergence_slab = CreateSlab(GRID_WIDTH, GRID_HEIGHT, GRID_DEPTH, 1);
     std::cout << "Created divergence grid = {" << divergence_slab.fbo << " , " << divergence_slab.tex << "}" << std::endl;
 
-    // we create a buffer representing the density for gas simulation and level set for liquid simulation
+    // advection buffers (macCormack)
+    Slab phi1_hat_slab = CreateSlab(GRID_WIDTH, GRID_HEIGHT, GRID_DEPTH, 3);
+    std::cout << "Created phi1_hat grid = {" << phi1_hat_slab.fbo << " , " << phi1_hat_slab.tex << "}" << std::endl;
+    Slab phi2_hat_slab = CreateSlab(GRID_WIDTH, GRID_HEIGHT, GRID_DEPTH, 3);
+    std::cout << "Created phi2_hat grid = {" << phi2_hat_slab.fbo << " , " << phi2_hat_slab.tex << "}" << std::endl;
+
+    // we create a buffer representing the density for gas simulation or level set for liquid simulation
     Slab density_slab = CreateSlab(GRID_WIDTH, GRID_HEIGHT, GRID_DEPTH, 1);
     std::cout << "Created density grid = {" << density_slab.fbo << " , " << density_slab.tex << "}" << std::endl;
 
@@ -371,14 +346,14 @@ int main()
     Slab temp_screenSize_slab = Create2DSlab(width, height, 4, false);
     std::cout << "Created temp screen size grid = {" << temp_screenSize_slab.fbo << " , " << temp_screenSize_slab.tex << "}" << std::endl;
 
-    /////////////////// CREATION OF BUFFER FOR THE RAYCASTING RAYDATA TEXTURE /////////////////////////////////////////
+    /////////////////// CREATION OF BUFFER FOR THE RAYDATA TEXTURE /////////////////////////////////////////
 
     Slab rayDataBack = Create2DSlab(width, height, 4, false);
     std::cout << "Created raydata back grid = {" << rayDataBack.fbo << " , " << rayDataBack.tex << "}" << std::endl;
     Slab rayDataFront = Create2DSlab(width, height, 4, false);
     std::cout << "Created raydata front grid = {" << rayDataFront.fbo << " , " << rayDataFront.tex << "}" << std::endl;
     
-    ///////////////////////////////// CREATION OF BUFFERS AND DATA FOR OBSTACLES /////////////////////////////////////////
+    /////////////////// CREATION OF BUFFERS AND DATA FOR OBSTACLES /////////////////////////////////////////
 
     ObstacleSlab obstacle_slab = CreateObstacleBuffer(GRID_WIDTH, GRID_HEIGHT, GRID_DEPTH);
     std::cout << "Created obstacle grid = {" << obstacle_slab.fbo << " , " << obstacle_slab.tex << " , " << obstacle_slab.depthStencil << " , " << obstacle_slab.firstLayerFBO << " , " << obstacle_slab.lastLayerFBO << "}" << std::endl;
@@ -386,10 +361,8 @@ int main()
     Slab obstacle_velocity_slab = CreateSlab(GRID_WIDTH, GRID_HEIGHT, GRID_DEPTH, 3);
     std::cout << "Created obstacle velocity grid = {" << obstacle_velocity_slab.fbo << " , " << obstacle_velocity_slab.tex << "}" << std::endl;
 
-    // Slab obstacle_stencil = CreateStencilBuffer(GRID_WIDTH, GRID_HEIGHT);
-    // std::cout << "Created obstacle stencil = {" << obstacle_stencil.fbo << " , " << obstacle_stencil.tex << "}" << std::endl;
+    /////////////////// CREATION OF BUFFER FOR THE DEPTH MAP - SHADOW MAP ///////////////////////////////////
 
-    /////////////////// CREATION OF BUFFER FOR THE  DEPTH MAP /////////////////////////////////////////
     // buffer dimension: too large -> performance may slow down if we have many lights; too small -> strong aliasing
     const GLuint SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;
     GLuint depthMapFBO;
@@ -421,7 +394,7 @@ int main()
     glReadBuffer(GL_NONE);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-    /////////////////// CREATION OF SCENE FRAMEBUFFERS /////////////////////////////////////////
+    /////////////////// CREATION OF SCENE BUFFERS /////////////////////////////////////////
 
     Scene scene = CreateScene(width, height);
     std::cout << "Created scene framebuffer = {" << scene.fbo << " , " << scene.colorTex << ", " << scene.depthTex << "}" << std::endl;
@@ -434,6 +407,7 @@ int main()
     // Create vertex objects for fluid simulation
     InitSimulationVAOs();
 
+    // we call the init function in case of liquid simulation as default
     if (currTarget == LIQUID)
         InitLiquidSimulation(*initLiquidShader, density_slab, levelSetInitialHeight);
 
@@ -517,62 +491,34 @@ int main()
             // we draw fluid box borders in the obstacle position buffer
             BorderObstacle(borderObstacleShader, borderObstacleShaderLayered, obstacle_slab);
 
-            // we define the model matrix of the fluid box
+            // we define the model matrix of the fluid volume
             cubeModelMatrix = glm::mat4(1.0f);
-            cubeNormalMatrix = glm::mat3(1.0f);
 
             cubeModelMatrix = glm::translate(cubeModelMatrix, fluidTranslation);
             cubeModelMatrix = glm::scale(cubeModelMatrix, glm::vec3(fluidScale));
 
-
             // we update the model matrices for the obstacles
             for_each(obstacleObjects.begin(), obstacleObjects.end(), [&](ObstacleObject* obj)
             {
-                if (!obj->isActive) return;
+                if (!obj->isActive) return; // we skip the obstacle if it is not active
 
+                // we save the previous model matrix
                 obj->prevModelMatrix = obj->modelMatrix;
 
+                // we update the model matrix
                 obj->modelMatrix = glm::mat4(1.0f);
 
                 obj->modelMatrix = glm::translate(obj->modelMatrix, obj->position);
                 obj->modelMatrix = glm::rotate(obj->modelMatrix, glm::radians(orientationY), glm::vec3(0.0f, 1.0f, 0.0f));
                 obj->modelMatrix = glm::scale(obj->modelMatrix, obj->scale);
 
-                // we draw the obstacle in the obstacle position buffer
+                // we draw the obstacle in the obstacle buffers
                 DynamicObstacle(stencilObstacleShader, obstacleVelocityShader, obstacle_slab, obstacle_velocity_slab, temp_velocity_slab, obj, fluidTranslation, fluidScale, simulationFramerate);
             });
 
-            // // we update the model matrix for the bunny
-            // bunny.prevModelMatrix = bunny.modelMatrix;
-            // bunny.modelMatrix = glm::mat4(1.0f);
-            // // bunnyNormalMatrix = glm::mat3(1.0f);
-            // bunny.modelMatrix = glm::translate(bunny.modelMatrix, glm::vec3(4.0f, 1.0f, 0.0f));
-            // // bunny.modelMatrix = glm::translate(bunny.modelMatrix, glm::vec3(0.0f, 1.0f, 1.0f));
-            // bunny.modelMatrix = glm::rotate(bunny.modelMatrix, glm::radians(orientationY), glm::vec3(0.0f, 1.0f, 0.0f));
-            // bunny.modelMatrix = glm::scale(bunny.modelMatrix, glm::vec3(0.3f, 0.3f, 0.3f));
-
-            // // we update the model matrix for the sphere
-            // sphere.prevModelMatrix = sphere.modelMatrix;
-            // sphere.modelMatrix = glm::mat4(1.0f);
-            // // sphereNormalMatrix = glm::mat3(1.0f);
-            // // sphere.modelMatrix = glm::translate(sphere.modelMatrix, glm::vec3(0.0f, 1.0f, 1.0f));
-            // sphere.modelMatrix = glm::translate(sphere.modelMatrix, glm::vec3(-5.0f, 1.0f, 1.0f));
-            // sphere.modelMatrix = glm::rotate(sphere.modelMatrix, glm::radians(orientationY), glm::vec3(0.0f, 1.0f, 0.0f));
-            // // sphere.modelMatrix = glm::scale(sphere.modelMatrix, glm::vec3(0.3f, 0.3f, 0.3f));
-
-            // // we update the matrix for baby yoda
-            // babyYoda.prevModelMatrix = babyYoda.modelMatrix;
-            // babyYoda.modelMatrix = glm::mat4(1.0f);
-            // // babyYodaNormalMatrix = glm::mat3(1.0f);
-            // babyYoda.modelMatrix = glm::translate(babyYoda.modelMatrix, glm::vec3(0.0f, 1.0f, 1.0f));
-            // babyYoda.modelMatrix = glm::rotate(babyYoda.modelMatrix, glm::radians(orientationY), glm::vec3(0.0f, 1.0f, 0.0f));
-            // babyYoda.modelMatrix = glm::scale(babyYoda.modelMatrix, glm::vec3(0.3f, 0.3f, 0.3f));
-
-            // we draw the dynamic obstacles in the obstacle buffer
-            // DynamicObstacle(stencilObstacleShader, obstacleVelocityShader, obstacle_slab, obstacle_velocity_slab, temp_velocity_slab, babyYoda, fluidTranslation, fluidScale, simulationFramerate);
-
             /////////////////// STEP 2 - UPDATE SIMULATION  //////////////////////////////////////////////////////////////////////////
-            // we bind the VAO for the quad and set up rendering
+
+            // we bind the full-screen quad VAO and set up rendering
             BeginSimulation();
 
             // advect velocity
@@ -595,30 +541,12 @@ int main()
                 ApplyLevelSetDamping(*dampingLevelSetShader, density_slab, obstacle_slab, temp_pressure_divergence_slab, levelSetDampingFactor, levelSetEquilibriumHeight);
             }
 
-            // we apply the external forces and splat density and temperature
-            // glm::vec3 placeholder_force;
-            // glm::vec3 force_center;
-            // float force_radius;
-
-            // if (currTarget == GAS)
-            // {
-            //     placeholder_force = glm::vec3(0, 0, -1) * 2.0f;
-            //     force_center = glm::vec3(GRID_WIDTH / 2.0f, GRID_HEIGHT * 0.4f, GRID_DEPTH * 0.7f);
-            //     force_radius = 5.0f;
-            // }
-            // else
-            // {
-            //     placeholder_force = glm::vec3(1, 0, 0) * 2.0f;
-            //     force_center = glm::vec3(GRID_WIDTH / 2.0f, GRID_HEIGHT * 0.8f, GRID_DEPTH / 2.0f);
-            //     force_radius = 3.0f;
-            // }
-
-            // we increase density and temperature based on applied force
-            float dyeColor = 1.2f;
-            // float dyeColor = placeholder_force.length();
-
+            // we splat density and temperature for each emitter
             if (currTarget == GAS)
             {
+                // we increase gas density and temperature by a fixed amount
+                float dyeColor = 1.2f;
+
                 for_each(fluidQuantities.begin(), fluidQuantities.end(), [&](FluidEmitter* fluidQuantity)
                 {
                     if (fluidQuantity->radius > 0.0f)
@@ -627,59 +555,32 @@ int main()
                         AddTemperature(temperatureShader, &temperature_slab, &temp_pressure_divergence_slab, fluidQuantity->position, fluidQuantity->radius, dyeColor);
                     }
                 });
-                // AddDensity(&dyeShader, &density_slab, &temp_pressure_divergence_slab, force_center, force_radius, dyeColor, GL_FALSE);
-
-                // AddTemperature(temperatureShader, &temperature_slab, &temp_pressure_divergence_slab, force_center, force_radius, dyeColor);
-
-                // force_center.y = 1 - force_center.y;
-                // force_center.x -= GRID_WIDTH / 5.0f;
-                // placeholder_force *= 2.0f;
-                // force_radius = 20.0f;
-
-                // ApplyExternalForces(&externalForcesShader, &velocity_slab, &temp_velocity_slab, timeStep, placeholder_force, force_center, force_radius);
             }
             else
             {
+                // we splat liquid level set for each emitter 
                 for_each(fluidQuantities.begin(), fluidQuantities.end(), [&](FluidEmitter* fluidQuantity)
                 {
                     if (fluidQuantity->radius > 0.0f)
                     {
+                        // we draw the level set as gaussian splat in the density buffer by adding a negative value equal to the radius
+                        // this will create a level set consistent to its definition (negative inside and equal to surface distance, positive outside)
                         AddDensity(&dyeShader, &density_slab, &temp_pressure_divergence_slab, fluidQuantity->position, fluidQuantity->radius, -fluidQuantity->radius, GL_TRUE);
                     }
                 });
 
-
-                // AddDensity(&dyeShader, &density_slab, &temp_pressure_divergence_slab, force_center, force_radius, -force_radius, GL_TRUE);
-
+                // we apply the gravity force to the level set
                 ApplyGravity(*gravityShader, velocity_slab, density_slab, temp_velocity_slab, gravityAcceleration, timeStep, gravityLevelSetThreshold);
-
-
-                // force_radius = 5.0f;
-                // force_center.x += force_center.x * 0.1f;
-                // ApplyExternalForces(&externalForcesShader, &velocity_slab, &temp_velocity_slab, timeStep, placeholder_force, force_center, force_radius);
-                // placeholder_force *= -1.0f;
-                // force_center.x -= force_center.x * 0.2f;
-                // ApplyExternalForces(&externalForcesShader, &velocity_slab, &temp_velocity_slab, timeStep, placeholder_force, force_center, force_radius);
             }
 
+            // we apply the external forces to the fluid
             for_each(externalForces.begin(), externalForces.end(), [&](Force* externalForce)
             {
-                if (externalForce->radius > 0.0f)
+                if (externalForce->radius > 0.0f && externalForce->strength > 0.0f)
                 {
                     ApplyExternalForces(&externalForcesShader, &velocity_slab, &temp_velocity_slab, timeStep, externalForce->direction * externalForce->strength, externalForce->position, externalForce->radius);
                 }
             });
-
-
-            // force_center.y = 1 - force_center.y;
-            // force_center.x -= GRID_WIDTH / 5.0f;
-            // placeholder_force *= 2.0f;
-            // force_radius = 20.0f;
-            // ApplyExternalForces(&externalForcesShader, &velocity_slab, &temp_velocity_slab, timeStep, placeholder_force, force_center, force_radius);
-
-            // force_center.x += 2 * GRID_WIDTH / 5.0f;
-            // placeholder_force.x *= -1;
-            // ApplyExternalForces(&externalForcesShader, &velocity_slab, &temp_velocity_slab, timeStep, placeholder_force, force_center, force_radius);
 
             // we update the divergence texture
             Divergence(&divergenceShader, &velocity_slab, &divergence_slab, &obstacle_slab, &obstacle_velocity_slab, &temp_pressure_divergence_slab);
@@ -693,29 +594,39 @@ int main()
             // reset the state
             EndSimulation();
 
+            // we update the simulation time
             lastSimulationUpdate = currentFrame;
         }
 
+        /////////////////// STEP 3 - SCENE RENDERING: SHADOW MAP CREATION ////////////////////////////////////////////////////////
 
-        /////////////////// STEP 1 - SHADOW MAP: RENDERING OF SCENE FROM LIGHT POINT OF VIEW ////////////////////////////////////////////////
+        // we enable the depth test
         glEnable(GL_DEPTH_TEST);
+
         // we set view and projection matrix for the rendering using light as a camera
         glm::mat4 lightProjection, lightView;
         glm::mat4 lightSpaceMatrix;
         GLfloat near_plane = -10.0f, far_plane = 10.0f;
         GLfloat frustumSize = 5.0f;
+
         // for a directional light, the projection is orthographic. For point lights, we should use a perspective projection
         lightProjection = glm::ortho(-frustumSize, frustumSize, -frustumSize, frustumSize, near_plane, far_plane);
+
         // the light is directional, so technically it has no position. We need a view matrix, so we consider a position on the the direction vector of the light
         lightView = glm::lookAt(lightDir0, glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+
         // transformation matrix for the light
         lightSpaceMatrix = lightProjection * lightView;
+
         /// We "install" the  Shader Program for the shadow mapping creation
         shadow_shader.Use();
+
         // we pass the transformation matrix as uniform
         glUniformMatrix4fv(glGetUniformLocation(shadow_shader.Program, "lightSpaceMatrix"), 1, GL_FALSE, glm::value_ptr(lightSpaceMatrix));
+
         // we set the viewport for the first rendering step = dimensions of the depth texture
         glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
+
         // we activate the FBO for the depth map rendering
         glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
         glClear(GL_DEPTH_BUFFER_BIT);
@@ -723,19 +634,19 @@ int main()
         // we render the scene, using the shadow shader
         RenderObjects(shadow_shader, planeModel, SHADOWMAP, depthMap);
 
-        // /////////////////// STEP 2 - SCENE RENDERING FROM CAMERA ////////////////////////////////////////////////
+        /////////////////// STEP 3.5 - SCENE RENDERING: RENDERING FROM CAMERA ////////////////////////////////////////////////////////
 
+        // we enable the buffer blending
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
         // we get the view matrix from the Camera class
         view = camera.GetViewMatrix();
 
-        // we activate back the standard Frame Buffer
+        // we activate back the scene Frame Buffer
         glBindFramebuffer(GL_FRAMEBUFFER, scene.fbo);
 
         // we "clear" the frame and z buffer
-        // glClearColor(0,0,0,1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // we set the rendering mode
@@ -749,13 +660,15 @@ int main()
         if (spinning)
             orientationY+=(deltaTime*spin_speed);
 
-        // we set the viewport for the final rendering step
+        // we set the viewport for the rendering step
         glViewport(0, 0, width, height);
 
         // We "install" the selected Shader Program as part of the current rendering process. We pass to the shader the light transformation matrix, and the depth map rendered in the first rendering step
         illumination_shader.Use();
+
          // we search inside the Shader Program the name of the subroutine currently selected, and we get the numerical index
         GLuint index = glGetSubroutineIndex(illumination_shader.Program, GL_FRAGMENT_SHADER, shaders[current_subroutine].c_str());
+
         // we activate the subroutine using the index (this is where shaders swapping happens)
         glUniformSubroutinesuiv( GL_FRAGMENT_SHADER, 1, &index);
 
@@ -776,45 +689,38 @@ int main()
         glUniform1f(alphaLocation, alpha);
         glUniform1f(f0Location, F0);
 
-        // we render the scene
+        // we render the scene 
         RenderObjects(illumination_shader, planeModel, RENDER, depthMap);
 
-        // setup fluid volume matrices
-        // cubeModelMatrix = glm::mat4(1.0f);
-        // cubeNormalMatrix = glm::mat3(1.0f);
-
-        // cubeModelMatrix = glm::translate(cubeModelMatrix, glm::vec3(0.0f, 2.0f, 1.0f));
-        // cubeModelMatrix = glm::scale(cubeModelMatrix, glm::vec3(2.0f, 2.0f, 2.0f));
-
-        // cubeNormalMatrix = glm::inverseTranspose(glm::mat3(cubeModelMatrix));
-
-        // render fluid volume (back first to be included in the scene)
+        // we render fluid volume (back first to be included in the scene)
         fillShader.Use();
 
+        // we enable the face culling
         glEnable(GL_CULL_FACE);
 
-        glUniformMatrix4fv(glGetUniformLocation(fillShader.Program, "model"), 1, GL_FALSE, glm::value_ptr(glm::scale(cubeModelMatrix, glm::vec3(1.001f, 1.001f, 1.001f))));
+        // we pass the transformation matrices to the Shader Program
+        glUniformMatrix4fv(glGetUniformLocation(fillShader.Program, "model"), 1, GL_FALSE, glm::value_ptr(glm::scale(cubeModelMatrix, glm::vec3(1.001f, 1.001f, 1.001f)))); // we scale the cube a bit to avoid z-fighting
         glUniformMatrix4fv(glGetUniformLocation(fillShader.Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
         glUniformMatrix4fv(glGetUniformLocation(fillShader.Program, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
         glUniform4fv(glGetUniformLocation(fillShader.Program, "color"), 1, glm::value_ptr(glm::vec4(1.0f, 1.0f, 1.0f, 0.1f)));
 
+        // we render the back faces of the cube
         glCullFace(GL_FRONT);
         cubeModel.Draw();
 
+        // we reset the face culling and the blending
         glDisable(GL_CULL_FACE);
         glDisable(GL_BLEND);
 
-        /////////////////// STEP 1 - RAYDATA: CREATING INFO FOR RAYMARCHING ////////////////////////////////////////////////
-        // we create the raymarching data texture
+        /////////////////// STEP 4 - RAYDATA: GENERATING DATA FOR RAYMARCHING ////////////////////////////////////////////////
 
-        glViewport(0, 0, width, height);
-
+        // we calculate the inverse screen size
         glm::vec2 inverseScreenSize = glm::vec2(1.0f / width, 1.0f / height);
 
         // we create the raydata texture
         RayData(raydataBackShader, raydataFrontShader, cubeModel, rayDataBack, rayDataFront, scene, cubeModelMatrix, view, projection, inverseScreenSize);
 
-        //////////////////////////////// STEP 2 - RAYMARCHING ////////////////////////////////////////////////
+        //////////////////////////////// STEP 5 - RAYMARCHING ////////////////////////////////////////////////
 
         if (currTarget == GAS)
         {
@@ -827,7 +733,7 @@ int main()
             RenderLiquid(*renderShader, density_slab, obstacle_slab, rayDataFront, rayDataBack, scene, fluidScene, cubeModel, cubeModelMatrix, view, projection, inverseScreenSize, windowNearPlane, camera.Position, camera.Front, camera.Up, camera.Right, lightDir0, Kd, alpha, F0);
         }
 
-        //////////////////////////////// STEP 3 - BLENDING ////////////////////////////////////////////////
+        //////////////////////////////// STEP 6 - BLENDING AND FINAL SCENE COMPOSITING ////////////////////////////////////////////////
 
         if (currTarget == LIQUID)
         {
@@ -853,21 +759,23 @@ int main()
         BlendRendering(blendingShader, scene, fluidScene, rayDataBack, inverseScreenSize);
 
         // we render the front faces of the fluid volume
-        // glEnable(GL_BLEND);
-        // glEnable(GL_CULL_FACE);
+        glEnable(GL_BLEND);
+        glEnable(GL_CULL_FACE);
 
-        // fillShader.Use();
+        fillShader.Use();
 
-        // glUniformMatrix4fv(glGetUniformLocation(fillShader.Program, "model"), 1, GL_FALSE, glm::value_ptr(glm::scale(cubeModelMatrix, glm::vec3(1.001f, 1.001f, 1.001f))));
-        // glUniformMatrix4fv(glGetUniformLocation(fillShader.Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
-        // glUniformMatrix4fv(glGetUniformLocation(fillShader.Program, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
-        // glUniform4fv(glGetUniformLocation(fillShader.Program, "color"), 1, glm::value_ptr(glm::vec4(1.0f, 1.0f, 1.0f, 0.1f)));
+        glUniformMatrix4fv(glGetUniformLocation(fillShader.Program, "model"), 1, GL_FALSE, glm::value_ptr(glm::scale(cubeModelMatrix, glm::vec3(1.001f, 1.001f, 1.001f))));
+        glUniformMatrix4fv(glGetUniformLocation(fillShader.Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
+        glUniformMatrix4fv(glGetUniformLocation(fillShader.Program, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
+        glUniform4fv(glGetUniformLocation(fillShader.Program, "color"), 1, glm::value_ptr(glm::vec4(1.0f, 1.0f, 1.0f, 0.1f)));
 
-        // glCullFace(GL_BACK);
-        // cubeModel.Draw();
+        glCullFace(GL_BACK);
+        cubeModel.Draw();
 
-        // glDisable(GL_BLEND);
-        // glDisable(GL_CULL_FACE);
+        glDisable(GL_BLEND);
+        glDisable(GL_CULL_FACE);
+
+        //////////////////////////////// STEP 7 - RENDERING THE UI AND FINAL OPERATIONS ////////////////////////////////////////////////
 
         RenderUI();
 
@@ -882,13 +790,49 @@ int main()
     // we delete the Shader Programs
     illumination_shader.Delete();
     shadow_shader.Delete();
+
+    advectionShader.Delete();
+    macCormackShader.Delete();
+    divergenceShader.Delete();
+    jacobiShader.Delete();
+    externalForcesShader.Delete();
+    pressureShader.Delete();
+    dyeShader.Delete();
+    fillShader.Delete();
+
+    temperatureShader->Delete();
+    delete temperatureShader;
+    buoyancyShader->Delete();
+    delete buoyancyShader;
+    initLiquidShader->Delete();
+    delete initLiquidShader;
+    dampingLevelSetShader->Delete();
+    delete dampingLevelSetShader;
+    gravityShader->Delete();
+    delete gravityShader;
+
+    borderObstacleShaderLayered.Delete();
+    borderObstacleShader.Delete();
+    stencilObstacleShader.Delete();
+    obstacleVelocityShader.Delete();
+
+    raydataBackShader.Delete();
+    raydataFrontShader.Delete();
+
+    blendingShader.Delete();
+    blurShader.Delete();
+    deNoiseShader.Delete();
+
+    renderShader->Delete();
+    delete renderShader;
+
     // chiudo e cancello il contesto creato
     glfwTerminate();
     return 0;
 }
 
-
 //////////////////////////////////////////
+
 // we render the objects. We pass also the current rendering step, and the depth map generated in the first step, which is used by the shaders of the second step
 void RenderObjects(Shader &shader, Model &planeModel, GLint render_pass, GLuint depthMap)
 {
@@ -931,7 +875,6 @@ void RenderObjects(Shader &shader, Model &planeModel, GLint render_pass, GLuint 
     // we render the plane
     planeModel.Draw();
 
-
     // we activate the texture of the objects
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, textureID[0]);
@@ -956,68 +899,7 @@ void RenderObjects(Shader &shader, Model &planeModel, GLint render_pass, GLuint 
         obj->objectModel->Draw();
     });
 
-
-
-
-    // we reset to identity at each frame
-    // sphere.prevModelMatrix = sphere.modelMatrix;
-    // sphere.modelMatrix = glm::mat4(1.0f);
-    // sphereNormalMatrix = glm::mat3(1.0f);
-    // sphere.modelMatrix = glm::translate(sphere.modelMatrix, glm::vec3(-3.0f, 1.0f, 0.0f));
-    // // sphere.modelMatrix = glm::translate(sphere.modelMatrix, glm::vec3(0.0f, 1.0f, 0.0f));
-    // // sphere.modelMatrix = glm::rotate(sphere.modelMatrix, glm::radians(orientationY), glm::vec3(0.0f, 1.0f, 0.0f));
-    // // sphere.modelMatrix = glm::scale(sphere.modelMatrix, glm::vec3(0.8f, 0.8f, 0.8f));
-    // sphereNormalMatrix = glm::inverseTranspose(glm::mat3(view*sphere.modelMatrix));
-    // glUniformMatrix4fv(glGetUniformLocation(shader.Program, "modelMatrix"), 1, GL_FALSE, glm::value_ptr(sphere.modelMatrix));
-    // glUniformMatrix3fv(glGetUniformLocation(shader.Program, "normalMatrix"), 1, GL_FALSE, glm::value_ptr(sphereNormalMatrix));
-
-    // // we render the sphere
-    // sphere.objectModel->Draw();
-
-
-    // BUNNY
-    // we reset to identity at each frame
-    // bunny.prevModelMatrix = bunny.modelMatrix;
-    // // bunny.modelMatrix = glm::mat4(1.0f);
-    // bunnyNormalMatrix = glm::mat3(1.0f);
-    // // bunny.modelMatrix = glm::translate(bunny.modelMatrix, glm::vec3(4.0f, 1.0f, 0.0f));
-    // // // bunny.modelMatrix = glm::translate(bunny.modelMatrix, glm::vec3(0.0f, 1.0f, 1.0f));
-    // // bunny.modelMatrix = glm::rotate(bunny.modelMatrix, glm::radians(orientationY), glm::vec3(0.0f, 1.0f, 0.0f));
-    // // bunny.modelMatrix = glm::scale(bunny.modelMatrix, glm::vec3(0.3f, 0.3f, 0.3f));
-    // bunnyNormalMatrix = glm::inverseTranspose(glm::mat3(view*bunny.modelMatrix));
-    // glUniformMatrix4fv(glGetUniformLocation(shader.Program, "modelMatrix"), 1, GL_FALSE, glm::value_ptr(bunny.modelMatrix));
-    // glUniformMatrix3fv(glGetUniformLocation(shader.Program, "normalMatrix"), 1, GL_FALSE, glm::value_ptr(bunnyNormalMatrix));
-
-    // // we render the bunny
-    // bunny.objectModel->Draw();
-
-    // // CUBE
-    // // we reset to identity at each frame
-    // cubeModelMatrix = glm::mat4(1.0f);
-    // cubeNormalMatrix = glm::mat3(1.0f);
-    // // cubeModelMatrix = glm::translate(cubeModelMatrix, glm::vec3(0.0f, 0.0f, 0.5f));
-    // // cubeModelMatrix = glm::rotate(cubeModelMatrix, glm::radians(orientationY), glm::vec3(0.0f, 1.0f, 0.0f));
-
-    // glActiveTexture(GL_TEXTURE0);
-    // glBindTexture(GL_TEXTURE_2D, textureID[2]);
-    // glUniform1i(textureLocation, 0);
-    // glUniform1f(repeatLocation, repeat);
-
-    // // cubeModelMatrix = glm::scale(cubeModelMatrix, glm::vec3(1.1f, 1.1f, 1.1f));
-    // cubeNormalMatrix = glm::inverseTranspose(glm::mat3(view*cubeModelMatrix));
-    // glUniformMatrix4fv(glGetUniformLocation(shader.Program, "modelMatrix"), 1, GL_FALSE, glm::value_ptr(cubeModelMatrix));
-    // glUniformMatrix3fv(glGetUniformLocation(shader.Program, "normalMatrix"), 1, GL_FALSE, glm::value_ptr(cubeNormalMatrix));
-
-    // // // we render the cube
-    // cubeModel.Draw();
-
-    // BABY YODA
-    // babyyodaNormalMatrix = glm::inverseTranspose(view * babyYoda.modelMatrix);
-    // glUniformMatrix4fv(glGetUniformLocation(shader.Program, "modelMatrix"), 1, GL_FALSE, glm::value_ptr(babyYoda.modelMatrix));
-    // glUniformMatrix3fv(glGetUniformLocation(shader.Program, "normalMatrix"), 1, GL_FALSE, glm::value_ptr(babyyodaNormalMatrix));
-
-    // babyYoda.objectModel->Draw();
-
+    // we deactivate the textures
     glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, 0);
     glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_2D, 0);
     glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_2D, 0);
@@ -1025,6 +907,7 @@ void RenderObjects(Shader &shader, Model &planeModel, GLint render_pass, GLuint 
 }
 
 //////////////////////////////////////////
+
 // we load the image from disk and we create an OpenGL texture
 GLint LoadTexture(const char* path)
 {
@@ -1061,6 +944,7 @@ GLint LoadTexture(const char* path)
 }
 
 ///////////////////////////////////////////
+
 // The function parses the content of the Shader Program, searches for the Subroutine type names,
 // the subroutines implemented for each type, print the names of the subroutines on the terminal, and add the names of
 // the subroutines to the shaders vector, which is used for the shaders swapping
@@ -1108,6 +992,7 @@ void SetupShader(int program)
 }
 
 /////////////////////////////////////////
+
 // we print on console the name of the currently used shader subroutine
 void PrintCurrentShader(int subroutine)
 {
@@ -1115,10 +1000,11 @@ void PrintCurrentShader(int subroutine)
 }
 
 //////////////////////////////////////////
+
 // If one of the WASD keys is pressed, the camera is moved accordingly (the code is in utils/camera.h)
 void apply_camera_movements()
 {
-    if (mouseLock) return;
+    if (mouseUnlock) return; // if the mouse is not locked, we do not move the camera
 
     if(keys[GLFW_KEY_W])
         camera.ProcessKeyboard(FORWARD, deltaTime);
@@ -1135,6 +1021,7 @@ void apply_camera_movements()
 }
 
 //////////////////////////////////////////
+
 // callback for keyboard events
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode)
 {
@@ -1155,7 +1042,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
     // pressing a key number, we change the shader applied to the models
     // if the key is between 1 and 9, we proceed and check if the pressed key corresponds to
     // a valid subroutine
-    if((key >= GLFW_KEY_1 && key <= GLFW_KEY_9) && action == GLFW_PRESS && !mouseLock)
+    if((key >= GLFW_KEY_1 && key <= GLFW_KEY_9) && action == GLFW_PRESS && !mouseUnlock)
     {
         // "1" to "9" -> ASCII codes from 49 to 59
         // we subtract 48 (= ASCII CODE of "0") to have integers from 1 to 9
@@ -1172,32 +1059,33 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
         }
     }
 
-    if (key == GLFW_KEY_RIGHT && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mouseLock)
+    // if right arrow is pressed, we increase the speed of the animated rotation of models (only if the mouse is not locked)
+    if (key == GLFW_KEY_RIGHT && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mouseUnlock)
     {
         spin_speed += 5;
         std::cout << "Spin speed: " << spin_speed << std::endl;
-        spin_speed = glm::max(spin_speed, 0.0f);
     }
 
-    if (key == GLFW_KEY_LEFT && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mouseLock)
+    // if left arrow is pressed, we decrease the speed of the animated rotation of models (only if the mouse is not locked)
+    if (key == GLFW_KEY_LEFT && (action == GLFW_PRESS || action == GLFW_REPEAT) && !mouseUnlock)
     {
         spin_speed -= 5;
         std::cout << "Spin speed: " << spin_speed << std::endl;
-        spin_speed = glm::max(spin_speed, 0.0f);
     }
 
+    // if M is pressed, we unlock/lock the mouse and we show/hide the UI
     if (key == GLFW_KEY_M && action == GLFW_PRESS)
     {
-        if (mouseLock)
+        if (mouseUnlock)
         {
-            mouseLock = false;
+            mouseUnlock = false;
             firstMouse = true;
             CollapseUI();
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
         }
         else
         {
-            mouseLock = true;
+            mouseUnlock = true;
             ExpandUI();
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
         }
@@ -1214,6 +1102,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 }
 
 //////////////////////////////////////////
+
 // callback for mouse events
 void mouse_callback(GLFWwindow* window, double xpos, double ypos)
 {
@@ -1227,8 +1116,7 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos)
           firstMouse = false;
       }
 
-      if (mouseLock)
-          return;
+      if (mouseUnlock) return; // if the mouse is not locked, we do not move the camera
 
       // offset of mouse cursor position
       GLfloat xoffset = xpos - lastX;
@@ -1243,6 +1131,9 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos)
 
 }
 
+//////////////////////////////////////////
+
+// instantiates the shader for the fluid rendering based on the current target fluid
 void CreateRenderShader(TargetFluid target)
 {
     if (target == GAS)
@@ -1257,6 +1148,7 @@ void CreateRenderShader(TargetFluid target)
     }
 }
 
+// instantiates the target fluid exclusive shaders for the simulation
 void CreateFluidShaders(TargetFluid target)
 {
     if (target == GAS)
