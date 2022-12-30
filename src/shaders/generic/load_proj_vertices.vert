@@ -1,3 +1,10 @@
+/*
+    OpenGL 4.1 Core - Vertex Shader
+
+    This shader is used to transform the vertices of the model
+    to the screen space. It is used in the vertex shader stage.
+*/
+
 #version 410 core
 
 layout (location = 0) in vec3 position;

@@ -1,3 +1,10 @@
+/*
+    OpenGL 4.1 - Geometry Shader
+
+    This shader is used to enable the layered rendering by setting the gl_Layer
+    variable. The gl_Layer variable is used to set the layer of the current
+    primitive. This variable is only available in the geometry shader.
+*/
 
 #version 410 core
 

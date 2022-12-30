@@ -246,28 +246,28 @@ int main()
     ResetForcesAndEmitters(currTarget);
 
     // we create the Shader Program for the creation of the shadow map
-    Shader shadow_shader("src/shaders/19_shadowmap.vert", "src/shaders/20_shadowmap.frag");
+    Shader shadow_shader("src/shaders/shadowmap/19_shadowmap.vert", "src/shaders/shadowmap/20_shadowmap.frag");
     // we create the Shader Program used for objects (which presents different subroutines we can switch)
-    Shader illumination_shader = Shader("src/shaders/21_ggx_tex_shadow.vert", "src/shaders/22_ggx_tex_shadow.frag");
+    Shader illumination_shader = Shader("src/shaders/shadowmap/21_ggx_tex_shadow.vert", "src/shaders/shadowmap/22_ggx_tex_shadow.frag");
 
     // we create the Shader Programs for fluid simulation
-    Shader advectionShader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom"  ,"src/shaders/simulation/advection.frag");
-    Shader macCormackShader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom"  ,"src/shaders/simulation/macCormack_advection.frag");
-    Shader divergenceShader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/simulation/divergence.frag");
-    Shader jacobiShader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/simulation/jacobi_pressure.frag");
-    Shader externalForcesShader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/simulation/apply_force.frag");
-    Shader pressureShader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/simulation/pressure_projection.frag");
-    Shader dyeShader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/simulation/add_dye.frag");
-    Shader fillShader = Shader("src/shaders/rendering/load_proj_vertices.vert", "src/shaders/rendering/fill.frag");
+    Shader advectionShader = Shader("src/shaders/generic/load_vertices.vert", "src/shaders/generic/set_layer.geom"  ,"src/shaders/simulation/advection.frag");
+    Shader macCormackShader = Shader("src/shaders/generic/load_vertices.vert", "src/shaders/generic/set_layer.geom"  ,"src/shaders/simulation/macCormack_advection.frag");
+    Shader divergenceShader = Shader("src/shaders/generic/load_vertices.vert", "src/shaders/generic/set_layer.geom","src/shaders/simulation/divergence.frag");
+    Shader jacobiShader = Shader("src/shaders/generic/load_vertices.vert", "src/shaders/generic/set_layer.geom","src/shaders/simulation/jacobi_pressure.frag");
+    Shader externalForcesShader = Shader("src/shaders/generic/load_vertices.vert", "src/shaders/generic/set_layer.geom","src/shaders/simulation/apply_force.frag");
+    Shader pressureShader = Shader("src/shaders/generic/load_vertices.vert", "src/shaders/generic/set_layer.geom","src/shaders/simulation/pressure_projection.frag");
+    Shader dyeShader = Shader("src/shaders/generic/load_vertices.vert", "src/shaders/generic/set_layer.geom","src/shaders/simulation/add_dye.frag");
+    Shader fillShader = Shader("src/shaders/generic/load_proj_vertices.vert", "src/shaders/generic/fill.frag");
 
     // we create the simulation Shader Programs for the requested target fluid
     CreateFluidShaders(currTarget);
 
     // we create the Shader Programs for solid-fluid interaction
-    Shader borderObstacleShaderLayered = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/obstacles/border.geom","src/shaders/obstacles/border.frag");
-    Shader borderObstacleShader = Shader("src/shaders/simulation/load_vertices.vert","src/shaders/obstacles/border.frag");
+    Shader borderObstacleShaderLayered = Shader("src/shaders/generic/load_vertices.vert", "src/shaders/obstacles/border.geom","src/shaders/obstacles/border.frag");
+    Shader borderObstacleShader = Shader("src/shaders/generic/load_vertices.vert","src/shaders/obstacles/border.frag");
 
-    Shader stencilObstacleShader = Shader("src/shaders/obstacles/position/obstacle_position.vert", "src/shaders/simulation/set_layer.geom" , "src/shaders/rendering/fill.frag");
+    Shader stencilObstacleShader = Shader("src/shaders/obstacles/position/obstacle_position.vert", "src/shaders/generic/set_layer.geom" , "src/shaders/generic/fill.frag");
     Shader obstacleVelocityShader = Shader("src/shaders/obstacles/velocity/obstacle_velocity.vert", "src/shaders/obstacles/velocity/obstacle_velocity.geom", "src/shaders/obstacles/velocity/obstacle_velocity.frag");
 
     // we create the Shader Programs for fluid rendering
@@ -275,8 +275,8 @@ int main()
     Shader raydataFrontShader = Shader("src/shaders/rendering/raydata/raydata.vert", "src/shaders/rendering/raydata/raydata_front.frag");
 
     Shader blendingShader = Shader("src/shaders/rendering/blending/blending.vert", "src/shaders/rendering/blending/blending.frag");
-    Shader blurShader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/rendering/blur.frag");
-    Shader deNoiseShader = Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/rendering/glslSmartDeNoise/frag.glsl");
+    Shader blurShader = Shader("src/shaders/generic/load_vertices.vert", "src/shaders/rendering/blur.frag");
+    Shader deNoiseShader = Shader("src/shaders/generic/load_vertices.vert", "src/shaders/rendering/glslSmartDeNoise/frag.glsl");
 
     // we create the rendering Shader Programs for the requested target fluid
     CreateRenderShader(currTarget);
@@ -297,11 +297,11 @@ int main()
 
     /////////////////// CREATION OF OBSTACLES /////////////////////////////////////////////////////////////
 
-    CreateObstacleObject("models/bunny_lp.obj", "bunny", glm::vec3(1.0f, 1.0f, 0.0f), glm::vec3(0.3f, 0.3f, 0.3f));
+    CreateObstacleObject("models/bunny_lp.obj", "bunny", glm::vec3(0.0f, 1.0f, 1.0f), glm::vec3(0.3f, 0.3f, 0.3f));
 
     CreateObstacleObject("models/sphere.obj", "sphere", glm::vec3(-5.0f, 1.0f, 1.0f), glm::vec3(1.0f));
     
-    CreateObstacleObject("models/babyyoda.obj", "models/low-poly_babyyoda.obj", "baby yoda", glm::vec3(4.0f, 1.0f, 0.0f), glm::vec3(0.3f, 0.3f, 0.3f));
+    CreateObstacleObject("models/babyyoda.obj", "models/low-poly_babyyoda.obj", "baby yoda", glm::vec3(4.0f, 1.0f, 1.0f), glm::vec3(0.3f, 0.3f, 0.3f));
 
     /////////////////// CREATION OF BUFFERS FOR THE SIMULATION GRID /////////////////////////////////////////
 
@@ -1154,14 +1154,14 @@ void CreateFluidShaders(TargetFluid target)
     if (target == GAS)
     {
         // we create the Shader Programs for only gas simulation
-        buoyancyShader = new Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom"  ,"src/shaders/simulation/buoyancy.frag");
-        temperatureShader = new Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/simulation/add_temperature.frag");
+        buoyancyShader = new Shader("src/shaders/generic/load_vertices.vert", "src/shaders/generic/set_layer.geom"  ,"src/shaders/simulation/buoyancy.frag");
+        temperatureShader = new Shader("src/shaders/generic/load_vertices.vert", "src/shaders/generic/set_layer.geom","src/shaders/simulation/add_temperature.frag");
     }
     else
     {
         // we create the Shader Programs for only liquid simulation
-        initLiquidShader = new Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/simulation/liquid/fill_levelSet.frag");
-        dampingLevelSetShader = new Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/simulation/liquid/damp_levelSet.frag");
-        gravityShader = new Shader("src/shaders/simulation/load_vertices.vert", "src/shaders/simulation/set_layer.geom","src/shaders/simulation/liquid/add_gravity.frag");
+        initLiquidShader = new Shader("src/shaders/generic/load_vertices.vert", "src/shaders/generic/set_layer.geom","src/shaders/simulation/liquid/fill_levelSet.frag");
+        dampingLevelSetShader = new Shader("src/shaders/generic/load_vertices.vert", "src/shaders/generic/set_layer.geom","src/shaders/simulation/liquid/damp_levelSet.frag");
+        gravityShader = new Shader("src/shaders/generic/load_vertices.vert", "src/shaders/generic/set_layer.geom","src/shaders/simulation/liquid/add_gravity.frag");
     }
 }
