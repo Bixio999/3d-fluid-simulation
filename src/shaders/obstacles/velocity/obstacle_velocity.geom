@@ -141,8 +141,8 @@ void EmitSegment(Point a1, Point b1)
     // extrude the segment along the projection of the face normal
     vec3 extrude = - normalize(projFaceNormal) * texelDiagonal;
 
-    Point a2 = Point(a1.position + extrude, a1.velocity, a1.intersectionResult, a1.t);
-    Point b2 = Point(b1.position + extrude, b1.velocity, b1.intersectionResult, b1.t);
+    Point a2 = Point(a1.position + extrude, a1.velocity);
+    Point b2 = Point(b1.position + extrude, b1.velocity);
 
     // emit the two triangles
     EmitTriangle(a1, b1, a2);
@@ -163,7 +163,7 @@ void main()
 
     // Calculate the intersection between the triangle and the plane
     Point intersections[3];
-    numIntersections = 0;
+    int numIntersections = 0;
 
     // For each edge of the triangle calculate the intersection with the plane
     // until 3 intersections are found or all the edges have been checked
@@ -181,7 +181,8 @@ void main()
         vec3 ab = b - a;
 
         // Calculate the intersection
-        result = SegmentPlaneIntersection(a, ab, p0, n, t);
+        float t;
+        int result = SegmentPlaneIntersection(a, ab, p0, n, t);
 
         // Check for the intersection type
         switch(result)
