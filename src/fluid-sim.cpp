@@ -660,57 +660,22 @@ void RayData(Shader &backShader, Shader &frontShader, Model &cubeModel, Slab &ba
 
 /////////////////////// RENDERING //////////////////////////
 
-// render gas fluid using raymarching technique. this is done by sampling the density texture with
-// the data gathered in the two raydata textures.
-// draw the result in a scene object.
-void RenderGas(Shader &renderShader, Model &cubeModel, glm::mat4 &model, glm::mat4 &view, glm::mat4 &projection, Slab &rayDataFront, Slab &rayDataBack, Slab &density, Scene &dest, glm::vec2 inverseScreenSize, GLfloat nearPlane, glm::vec3 eyePosition, glm::vec3 cameraFront)
-{
-    renderShader.Use();
-    glBindFramebuffer(GL_FRAMEBUFFER, dest.fbo);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, rayDataFront.tex);
-    glUniform1i(glGetUniformLocation(renderShader.Program, "RayDataFront"), 0);
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_3D, density.tex);
-    glUniform1i(glGetUniformLocation(renderShader.Program, "DensityTexture"), 1);
-    glActiveTexture(GL_TEXTURE2);
-    glBindTexture(GL_TEXTURE_2D, rayDataBack.tex);
-    glUniform1i(glGetUniformLocation(renderShader.Program, "RayDataBack"), 2);
-
-    glUniformMatrix4fv(glGetUniformLocation(renderShader.Program, "model"), 1, GL_FALSE, glm::value_ptr(model));
-    glUniformMatrix4fv(glGetUniformLocation(renderShader.Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
-    glUniformMatrix4fv(glGetUniformLocation(renderShader.Program, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
-    glUniform3fv(glGetUniformLocation(renderShader.Program, "grid_size"), 1, glm::value_ptr(glm::vec3(GRID_WIDTH, GRID_HEIGHT, GRID_DEPTH)));
-    glUniform2fv(glGetUniformLocation(renderShader.Program, "InverseSize"), 1, glm::value_ptr(inverseScreenSize));
-    glUniform1f(glGetUniformLocation(renderShader.Program, "nearPlane"), nearPlane);
-    glUniform3fv(glGetUniformLocation(renderShader.Program, "eyePos"), 1, glm::value_ptr(eyePosition));
-    glUniform3fv(glGetUniformLocation(renderShader.Program, "cameraFront"), 1, glm::value_ptr(cameraFront));
-
-    cubeModel.Draw();
-
-    glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, 0);
-    glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_3D, 0);
-    glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_2D, 0);
-
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-}
-
-// render liquid fluid using raymarching technique. this is done by sampling the density texture with
-// the data gathered in the two raydata textures. Liquid surface is also shaded with ggx lighting model.
+// render fluid using raymarching technique. this is done by sampling the density texture with
+// the data gathered in the two raydata textures. the two target fluids rendering is handled
+// separately with subroutines.
+// If the target fluid is liquid, the surface is shaded with ggx lighting model.
 // for each surface point, the normal is approximated by the gradient of the level set function. the 
 // lighting model is then applied to the surface point. Refraction is also applied to all surface points.
 // draw the result in a scene object.
-void RenderLiquid(Shader &renderShader, Slab &levelSet, ObstacleSlab &obstacle, Slab &rayDataFront, Slab &rayDataBack, Scene &backgroudScene, Scene &dest, Model &cubeModel, glm::mat4 &model, glm::mat4 &view, glm::mat4 &projection, glm::vec2 inverseScreenSize, GLfloat nearPlane, glm::vec3 eyePosition, glm::vec3 cameraFront, glm::vec3 cameraUp, glm::vec3 cameraRight, glm::vec3 lightDirection, GLfloat Kd, GLfloat rugosity, GLfloat F0)
+void RenderFluid(Shader &renderShader, Slab &density_slab, ObstacleSlab &obstacle, Slab &rayDataFront, Slab &rayDataBack, Scene &backgroudScene, Scene &dest, Model &cubeModel, glm::mat4 &model, glm::mat4 &view, glm::mat4 &projection, glm::vec2 inverseScreenSize, GLfloat nearPlane, glm::vec3 eyePosition, glm::vec3 cameraFront, glm::vec3 cameraUp, glm::vec3 cameraRight, glm::vec3 lightDirection, GLfloat Kd, GLfloat rugosity, GLfloat F0, GLboolean isLiquidSimulation)
 {
     renderShader.Use();
     glBindFramebuffer(GL_FRAMEBUFFER, dest.fbo);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_3D, levelSet.tex);
-    glUniform1i(glGetUniformLocation(renderShader.Program, "LevelSetTexture"), 0);
+    glBindTexture(GL_TEXTURE_3D, density_slab.tex);
+    glUniform1i(glGetUniformLocation(renderShader.Program, "DensityTexture"), 0);
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, backgroudScene.colorTex);
     glUniform1i(glGetUniformLocation(renderShader.Program, "BackgroundTexture"), 1);
@@ -739,6 +704,15 @@ void RenderLiquid(Shader &renderShader, Slab &levelSet, ObstacleSlab &obstacle, 
     glUniform1f(glGetUniformLocation(renderShader.Program, "rugosity"), rugosity);
     glUniform1f(glGetUniformLocation(renderShader.Program, "F0"), F0);
     glUniform3fv(glGetUniformLocation(renderShader.Program, "lightVector"), 1, glm::value_ptr(lightDirection));
+
+    // set the correct subroutine for the shader
+    GLuint index = 0;
+    if (isLiquidSimulation)
+        index = glGetSubroutineIndex(renderShader.Program, GL_FRAGMENT_SHADER, "RaymarchingLiquid");
+    else
+        index = glGetSubroutineIndex(renderShader.Program, GL_FRAGMENT_SHADER, "RaymarchingGas");
+
+    glUniformSubroutinesuiv(GL_FRAGMENT_SHADER, 1, &index);
 
     cubeModel.Draw();
 

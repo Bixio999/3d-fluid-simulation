@@ -92,7 +92,7 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void apply_camera_movements();
 
 // the name of the subroutines are searched in the shaders, and placed in the shaders vector (to allow shaders swapping)
-void SetupShader(int shader_program);
+void SetupShader(int program, bool save);
 
 // print on console the name of current shader subroutine
 void PrintCurrentShader(int subroutine);
@@ -104,7 +104,6 @@ void RenderObjects(Shader &shader, Model &planeModel, GLint render_pass, GLuint 
 GLint LoadTexture(const char* path);
 
 // Shaders and data structure initialization functions
-void CreateRenderShader(TargetFluid target);
 void CreateFluidShaders(TargetFluid target);
 
 ///////////////////////// GLOBAL VARIABLES /////////////////////////
@@ -174,7 +173,6 @@ GLfloat orientationY;
 
 // Target fluid exclusive shaders
 Shader *buoyancyShader, *temperatureShader, *initLiquidShader, *dampingLevelSetShader, *gravityShader;
-Shader *renderShader;
 
 /////////////////// MAIN function ///////////////////////
 int main()
@@ -278,12 +276,13 @@ int main()
     Shader blurShader = Shader("src/shaders/generic/load_vertices.vert", "src/shaders/rendering/blur.frag");
     Shader deNoiseShader = Shader("src/shaders/generic/load_vertices.vert", "src/shaders/rendering/glslSmartDeNoise/frag.glsl");
 
-    // we create the rendering Shader Programs for the requested target fluid
-    CreateRenderShader(currTarget);
+    // we create the rendering Shader Program
+    Shader renderShader = Shader("src/shaders/rendering/raydata/raydata.vert", "src/shaders/rendering/raymarching.frag");
 
-    // we parse the Shader Program to search for the number and names of the subroutines.
-    // the names are placed in the shaders vector
-    SetupShader(illumination_shader.Program);
+    // we parse the Shader Programs to search for the number and names of the subroutines.
+    // the names are placed in the shaders vector only for the illumination shader
+    SetupShader(illumination_shader.Program, true);
+    SetupShader(renderShader.Program, false);
     // we print on console the name of the first subroutine used
     PrintCurrentShader(current_subroutine);
 
@@ -435,7 +434,7 @@ int main()
             std::cout << "Switching to " << (currTarget == GAS ? "gas" : "liquid") << " simulation" << std::endl;
 
             // Destroy old fluid context
-            renderShader->Delete();
+            // renderShader.Delete();
 
             if (prevTarget == GAS)
             {
@@ -455,7 +454,7 @@ int main()
             ClearSlabs(4, &velocity_slab, &pressure_slab, &divergence_slab, &density_slab);
 
             // Instantiate the new fluid shaders
-            CreateRenderShader(currTarget);
+            // CreateRenderShader(currTarget);
             CreateFluidShaders(currTarget);
 
             if (currTarget == LIQUID)
@@ -722,16 +721,7 @@ int main()
 
         //////////////////////////////// STEP 5 - RAYMARCHING ////////////////////////////////////////////////
 
-        if (currTarget == GAS)
-        {
-            // we render the gas
-            RenderGas(*renderShader, cubeModel, cubeModelMatrix, view, projection, rayDataFront, rayDataBack, density_slab, fluidScene, inverseScreenSize, windowNearPlane, camera.Position, camera.Front);
-        }
-        else
-        {
-            // we render the liquid
-            RenderLiquid(*renderShader, density_slab, obstacle_slab, rayDataFront, rayDataBack, scene, fluidScene, cubeModel, cubeModelMatrix, view, projection, inverseScreenSize, windowNearPlane, camera.Position, camera.Front, camera.Up, camera.Right, lightDir0, Kd, alpha, F0);
-        }
+        RenderFluid(renderShader, density_slab, obstacle_slab, rayDataFront, rayDataBack, scene, fluidScene, cubeModel, cubeModelMatrix, view, projection, inverseScreenSize, windowNearPlane, camera.Position, camera.Front, camera.Up, camera.Right, lightDir0, Kd, alpha, F0, currTarget == LIQUID);
 
         //////////////////////////////// STEP 6 - BLENDING AND FINAL SCENE COMPOSITING ////////////////////////////////////////////////
 
@@ -800,15 +790,22 @@ int main()
     dyeShader.Delete();
     fillShader.Delete();
 
-    temperatureShader->Delete();
+    if (currTarget == GAS)
+    {
+        temperatureShader->Delete();
+        buoyancyShader->Delete();
+    }
+    else
+    {
+        initLiquidShader->Delete();
+        dampingLevelSetShader->Delete();
+        gravityShader->Delete();
+    }
+
     delete temperatureShader;
-    buoyancyShader->Delete();
     delete buoyancyShader;
-    initLiquidShader->Delete();
     delete initLiquidShader;
-    dampingLevelSetShader->Delete();
     delete dampingLevelSetShader;
-    gravityShader->Delete();
     delete gravityShader;
 
     borderObstacleShaderLayered.Delete();
@@ -823,8 +820,7 @@ int main()
     blurShader.Delete();
     deNoiseShader.Delete();
 
-    renderShader->Delete();
-    delete renderShader;
+    renderShader.Delete();
 
     // chiudo e cancello il contesto creato
     glfwTerminate();
@@ -948,7 +944,7 @@ GLint LoadTexture(const char* path)
 // The function parses the content of the Shader Program, searches for the Subroutine type names,
 // the subroutines implemented for each type, print the names of the subroutines on the terminal, and add the names of
 // the subroutines to the shaders vector, which is used for the shaders swapping
-void SetupShader(int program)
+void SetupShader(int program, bool save)
 {
     int maxSub,maxSubU,countActiveSU;
     GLchar name[256];
@@ -983,7 +979,7 @@ void SetupShader(int program)
         for (int j=0; j < numCompS; ++j) {
             glGetActiveSubroutineName(program, GL_FRAGMENT_SHADER, s[j], 256, &len, name);
             std::cout << "\t" << s[j] << " - " << name << "\n";
-            shaders.push_back(name);
+            if (save) shaders.push_back(name);
         }
         std::cout << std::endl;
 
@@ -1132,21 +1128,6 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos)
 }
 
 //////////////////////////////////////////
-
-// instantiates the shader for the fluid rendering based on the current target fluid
-void CreateRenderShader(TargetFluid target)
-{
-    if (target == GAS)
-    {
-        // we create the Shader Programs for only gas rendering
-        renderShader = new Shader("src/shaders/rendering/raydata/raydata.vert", "src/shaders/rendering/raymarching.frag");
-    }
-    else
-    {
-        // we create the Shader Programs for only liquid rendering
-        renderShader = new Shader("src/shaders/rendering/raydata/raydata.vert", "src/shaders/rendering/liquid/raymarching_liquid.frag");
-    }
-}
 
 // instantiates the target fluid exclusive shaders for the simulation
 void CreateFluidShaders(TargetFluid target)

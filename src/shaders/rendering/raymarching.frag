@@ -2,7 +2,7 @@
 
 out vec4 FragColor;
 
-uniform vec2 InverseSize;
+uniform vec2 InverseScreenSize;
 
 uniform mat4 model;
 uniform mat4 view;
@@ -12,15 +12,35 @@ uniform vec3 grid_size;
 uniform float nearPlane;
 uniform vec3 eyePos;
 uniform vec3 cameraFront;
+uniform vec3 cameraUp;
+uniform vec3 cameraRight;
 
 uniform sampler2D RayDataBack;
 uniform sampler2D RayDataFront;
 
 uniform sampler3D DensityTexture;
+uniform sampler2D BackgroundTexture;
+uniform sampler3D ObstacleTexture;
 
 in vec4 mvpPos;
 in vec3 ogPos;
 in vec3 texPos;
+
+in vec3 lightDir;
+in vec3 vViewPosition;
+
+uniform float rugosity; // rugosity - 0 : smooth, 1: rough
+uniform float F0; // fresnel reflectance at normal incidence
+uniform float Kd; // weight of diffuse reflection
+const float PI = 3.14159265359;
+
+///////////////////
+
+subroutine vec4 raymarching(vec3 start, vec3 dir);
+
+subroutine uniform raymarching raymarch_func;
+
+///////////////////
 
 vec3 NearPlaneIntersection(vec3 eyePos, vec3 end)
 {
@@ -99,10 +119,224 @@ float interpolate_tricubic_fast(sampler3D tex, vec3 coord)
 	return mix(tex001, tex000, g0.z);  //weigh along the z-direction
 }
 
+///////////////////
+
+subroutine(raymarching)
+vec4 RaymarchingGas(vec3 start, vec3 dir)
+{
+    vec3 fluidColor = vec3(0.8,0.8, 0.8);
+    vec4 finalColor = vec4(0,0,0,0);
+
+    // FragColor = vec4(dir, 1);
+
+    vec3 sampleInterval = 0.5 / grid_size;
+    float t = dot(sampleInterval, abs(dir)) / (length(dir) * length(dir));
+    t /= 2.0;
+    // float t = 0.5 / grid_size.x;
+
+    float sampledDensity = 0;
+    for(float i = 0.5 * t * rand(gl_FragCoord.xy); i <= 1.0; i += t)
+    {
+        vec3 p = start + dir * i;
+
+        sampledDensity = texture(DensityTexture, p).x;
+        finalColor.xyz += fluidColor * sampledDensity * (1.0 - finalColor.w);
+        finalColor.w += sampledDensity * (1.0 - finalColor.w);
+
+        if (finalColor.w > 0.99)
+            break;
+    }
+
+    if (finalColor.w < 0.01)
+        return vec4(0.0);
+    return vec4(finalColor);
+}
+
+///////////////////
+
+vec3 ComputeGradient(vec3 pos)
+{
+    vec3 InverseGridSize = 1.0 / grid_size;
+
+    float center = texture(DensityTexture, pos).r;
+
+    float left = texture(DensityTexture, pos + vec3(-1, 0, 0) * InverseGridSize).r;
+    float right = texture(DensityTexture, pos + vec3(1, 0, 0) * InverseGridSize).r;
+    float bottom = texture(DensityTexture, pos + vec3(0, -1, 0) * InverseGridSize).r;
+    float top = texture(DensityTexture, pos + vec3(0, 1, 0) * InverseGridSize).r;
+    float back = texture(DensityTexture, pos + vec3(0, 0, -1) * InverseGridSize).r;
+    float front = texture(DensityTexture, pos + vec3(0, 0, 1) * InverseGridSize).r;
+
+    float obsLeft = texture(ObstacleTexture, pos + vec3(-1, 0, 0) * InverseGridSize).r;
+    float obsRight = texture(ObstacleTexture, pos + vec3(1, 0, 0) * InverseGridSize).r;
+    float obsBottom = texture(ObstacleTexture, pos + vec3(0, -1, 0) * InverseGridSize).r;
+    float obsTop = texture(ObstacleTexture, pos + vec3(0, 1, 0) * InverseGridSize).r;
+    float obsBack = texture(ObstacleTexture, pos + vec3(0, 0, -1) * InverseGridSize).r;
+    float obsFront = texture(ObstacleTexture, pos + vec3(0, 0, 1) * InverseGridSize).r;
+
+    if (obsLeft > 0.0) left = center;
+    if (obsRight > 0.0) right = center;
+    if (obsBottom > 0.0) bottom = center;
+    if (obsTop > 0.0) top = center;
+    if (obsBack > 0.0) back = center;
+    if (obsFront > 0.0) front = center;
+
+    vec3 gradient = 0.5 * vec3(right - left, top - bottom, front - back);
+
+    return gradient;
+}
+
+// Schlick-GGX method for geometry obstruction (used by GGX model)
+float G1(float angle, float alpha)
+{
+    // in case of Image Based Lighting, the k factor is different:
+    // usually it is set as k=(alpha*alpha)/2
+    float r = (alpha + 1.0);
+    float k = (r*r) / 8.0;
+
+    float num   = angle;
+    float denom = angle * (1.0 - k) + k;
+
+    return num / denom;
+}
+
+vec3 ComputeLighting(vec3 color, vec3 normal)
+{
+    vec3 L = normalize(lightDir);
+
+    float NdotL = max(dot(normal, L), 0.0);
+    vec3 lambert = (Kd * color) / PI;
+    vec3 specular = vec3(0.0);
+
+    if (NdotL > 0.0)
+    {
+        vec3 V = normalize(vViewPosition);
+        vec3 H = normalize(L + V);
+
+        float NdotH = max(dot(normal, H), 0.0);
+        float NdotV = max(dot(normal, V), 0.0);
+        float VdotH = max(dot(V, H), 0.0);
+        float alpha_Squared = rugosity * rugosity;
+        float NdotH_Squared = NdotH * NdotH;
+
+        float G2 = G1(NdotV, rugosity) * G1(NdotL, rugosity);
+
+        float D = alpha_Squared;
+        float denom = NdotH_Squared * (alpha_Squared - 1.0) + 1.0;
+        D = D / (PI * denom * denom);
+
+        vec3 F = vec3(pow(1.0 - VdotH, 5.0));
+        F *= (1.0 - F0);
+        F += F0;
+
+        // we put everything together for the specular component
+        if (NdotV * NdotL > 0.0)
+            specular = (F * G2 * D) / (4.0 * NdotV * NdotL);
+    }
+
+    return (lambert + specular) * NdotL;
+    // return lambert * NdotL;
+}
+
+subroutine(raymarching)
+vec4 RaymarchingLiquid(vec3 start, vec3 dir)
+{
+    vec3 fluidColor = vec3(52.0,120.0, 198.0); //52	120	198	
+    fluidColor /= 255.0;
+    vec4 finalColor = vec4(0,0,0,0);
+
+    float alpha = 0.0;
+    float stepSize = 0.1;
+
+    // FragColor = vec4(dir, 1);
+
+    vec3 sampleInterval = 0.5 / grid_size;
+    float t = dot(sampleInterval, abs(dir)) / (length(dir) * length(dir));
+    // t /= 2.0;
+    float i = t + t * rand(gl_FragCoord.xy);
+    vec3 p = start + dir * i;
+
+    float curr = texture(DensityTexture, p).x;
+    float prev = curr; 
+    i += t;
+    bool surfaceFound = false;
+    vec3 surface;
+
+    // int j = 0;
+
+    // for(; i <= 1.0 && length(p - start) <= length(dir); i += t * mix(0.7, 1.0, rand(gl_FragCoord.xy + j)))
+    for(; i <= 1.0 && length(p - start) <= length(dir); i += t)
+    {
+        p = start + dir * i;
+        // j++;
+
+        // curr = texture(DensityTexture, p).x;
+        curr = interpolate_tricubic_fast(DensityTexture, p);
+
+        if (curr < 0.0)
+            alpha += stepSize;
+
+        if (curr * prev < 0.0 && !surfaceFound)
+        {
+            surfaceFound = true;
+            surface = p;
+            // surface = vec3(i, curr, prev);
+        }
+
+        if (surfaceFound && alpha >= 0.8)
+            break;
+    }
+
+    // alpha = clamp(alpha, 0.0, 0.8);
+    alpha = min(alpha, 0.8);
+
+    float lightingFactor = 0.6;
+
+    if (alpha > 0.0)
+    {
+        vec3 surfaceNormal;
+        if (surfaceFound)
+            surfaceNormal = ComputeGradient(surface);
+        else
+        {
+            surfaceNormal = - ComputeGradient(p);
+            lightingFactor += lightingFactor * 0.8;
+        }
+
+        surfaceNormal.z *= -1.0;
+        surfaceNormal = (view * vec4(surfaceNormal, 0.0)).xyz;
+
+        vec2 refractionPos = gl_FragCoord.xy - vec2(dot(surfaceNormal, cameraRight), dot(surfaceNormal, cameraUp));
+
+        surfaceNormal = normalize(surfaceNormal);
+
+        // finalColor = vec4(surfaceNormal, 1.0);
+
+        vec3 refractionColor = texture(BackgroundTexture, refractionPos * InverseScreenSize).xyz;
+        // finalColor = vec4(refractionColor, 1.0);
+
+        // fluidColor = ComputeLighting(fluidColor, surfaceNormal);
+
+        fluidColor = fluidColor * lightingFactor + ComputeLighting(fluidColor, surfaceNormal) * (1 - lightingFactor);
+
+        // finalColor = vec4(fluidColor, 1.0);
+
+        alpha = max(alpha, 0.1);
+        vec3 color = fluidColor * alpha + refractionColor * (1.0 - alpha);
+
+        finalColor = vec4(color, 1.0);
+        // finalColor = vec4(interpolate_tricubic_fast(DensityTexture, surface), 0, 0, 1.0);
+        // finalColor = vec4(vec3(j), 1.0);
+    }
+    return finalColor;
+}
+
+///////////////////
+
 void main()
 {
-    vec4 rd_back = texture(RayDataBack, gl_FragCoord.xy * InverseSize);
-    vec4 rd_front = texture(RayDataFront, gl_FragCoord.xy * InverseSize);
+    vec4 rd_back = texture(RayDataBack, gl_FragCoord.xy * InverseScreenSize);
+    vec4 rd_front = texture(RayDataFront, gl_FragCoord.xy * InverseScreenSize);
 
     // object in front of volume
     if (rd_front.x < 0.0)
@@ -150,36 +384,9 @@ void main()
 
     // FragColor = vec4(dir, 1.0);
 
-    vec3 fluidColor = vec3(0.8,0.8, 0.8);
-    vec4 finalColor = vec4(0,0,0,0);
-
-    // FragColor = vec4(dir, 1);
-
     if (length(dir) <= 0.0)
         discard;
 
-    vec3 sampleInterval = 0.5 / grid_size;
-    float t = dot(sampleInterval, abs(dir)) / (length(dir) * length(dir));
-    t /= 2.0;
-    // float t = 0.5 / grid_size.x;
-
-    float sampledDensity = 0;
-    for(float i = 0.5 * t * rand(gl_FragCoord.xy); i <= 1.0; i += t)
-    {
-        vec3 p = start + dir * i;
-
-        sampledDensity = texture(DensityTexture, p).x;
-        finalColor.xyz += fluidColor * sampledDensity * (1.0 - finalColor.w);
-        finalColor.w += sampledDensity * (1.0 - finalColor.w);
-
-        if (finalColor.w > 0.99)
-            break;
-    }
-
-    if (finalColor.w < 0.01)
-        discard;
-        // FragColor = vec4(0,0,0,0);
-    else
-        FragColor = finalColor;
+    FragColor = raymarch_func(start, dir);
 
 }
