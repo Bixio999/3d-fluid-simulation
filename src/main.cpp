@@ -274,7 +274,7 @@ int main()
     Shader raydataBackShader = Shader("src/shaders/rendering/raydata/raydata.vert", "src/shaders/rendering/raydata/raydata_back.frag");
     Shader raydataFrontShader = Shader("src/shaders/rendering/raydata/raydata.vert", "src/shaders/rendering/raydata/raydata_front.frag");
 
-    Shader blendingShader = Shader("src/shaders/rendering/blending/blending.vert", "src/shaders/rendering/blending/blending.frag");
+    Shader blendingShader = Shader("src/shaders/generic/load_vertices.vert", "src/shaders/rendering/blending/blending.frag");
     Shader blurShader = Shader("src/shaders/generic/load_vertices.vert", "src/shaders/rendering/blur.frag");
     Shader deNoiseShader = Shader("src/shaders/generic/load_vertices.vert", "src/shaders/rendering/glslSmartDeNoise/frag.glsl");
 
