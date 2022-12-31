@@ -264,8 +264,8 @@ int main()
     CreateFluidShaders(currTarget);
 
     // we create the Shader Programs for solid-fluid interaction
-    Shader borderObstacleShaderLayered = Shader("src/shaders/generic/load_vertices.vert", "src/shaders/obstacles/border.geom","src/shaders/obstacles/border.frag");
-    Shader borderObstacleShader = Shader("src/shaders/generic/load_vertices.vert","src/shaders/obstacles/border.frag");
+    Shader borderObstacleShaderLayered = Shader("src/shaders/generic/load_vertices.vert", "src/shaders/obstacles/border.geom","src/shaders/generic/fill.frag");
+    Shader borderObstacleShader = Shader("src/shaders/generic/load_vertices.vert","src/shaders/generic/fill.frag");
 
     Shader stencilObstacleShader = Shader("src/shaders/obstacles/position/obstacle_position.vert", "src/shaders/generic/set_layer.geom" , "src/shaders/generic/fill.frag");
     Shader obstacleVelocityShader = Shader("src/shaders/obstacles/velocity/obstacle_velocity.vert", "src/shaders/obstacles/velocity/obstacle_velocity.geom", "src/shaders/obstacles/velocity/obstacle_velocity.frag");

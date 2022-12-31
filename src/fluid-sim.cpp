@@ -878,7 +878,7 @@ void BorderObstacle(Shader &borderObstacleShader, Shader &borderObstacleShaderLa
 
     glBindFramebuffer(GL_FRAMEBUFFER, dest.fbo);
 
-    glUniform3fv(glGetUniformLocation(borderObstacleShaderLayered.Program, "color"), 1, glm::value_ptr(color));
+    glUniform4fv(glGetUniformLocation(borderObstacleShaderLayered.Program, "color"), 1, glm::value_ptr(color));
 
     glBindVertexArray(borderVAO);
     glDrawArraysInstanced(GL_LINE_STRIP, 0, 5, GRID_DEPTH);
