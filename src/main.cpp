@@ -769,6 +769,7 @@ int main()
 
         RenderUI();
 
+        // we update the target fluid
         prevTarget = currTarget;
         currTarget = targetFluid;
 
