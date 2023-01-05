@@ -1135,8 +1135,8 @@ void CreateFluidShaders(TargetFluid target)
     if (target == GAS)
     {
         // we create the Shader Programs for only gas simulation
-        buoyancyShader = new Shader("src/shaders/generic/load_vertices.vert", "src/shaders/generic/set_layer.geom"  ,"src/shaders/simulation/buoyancy.frag");
-        temperatureShader = new Shader("src/shaders/generic/load_vertices.vert", "src/shaders/generic/set_layer.geom","src/shaders/simulation/add_temperature.frag");
+        buoyancyShader = new Shader("src/shaders/generic/load_vertices.vert", "src/shaders/generic/set_layer.geom"  ,"src/shaders/simulation/gas/buoyancy.frag");
+        temperatureShader = new Shader("src/shaders/generic/load_vertices.vert", "src/shaders/generic/set_layer.geom","src/shaders/simulation/gas/add_temperature.frag");
     }
     else
     {

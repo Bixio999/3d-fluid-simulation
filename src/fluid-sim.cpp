@@ -423,8 +423,8 @@ void Buoyancy(Shader* buoyancyShader, Slab *velocity, Slab *temperature, Slab *d
 
     glUniform1f(glGetUniformLocation(buoyancyShader->Program, "timeStep"), timeStep);
     glUniform1f(glGetUniformLocation(buoyancyShader->Program, "ambientTemperature"), ambientTemperature);
-    glUniform1f(glGetUniformLocation(buoyancyShader->Program, "smokeBuoyancy"), sigma);
-    glUniform1f(glGetUniformLocation(buoyancyShader->Program, "smokeWeight"), kappa);
+    glUniform1f(glGetUniformLocation(buoyancyShader->Program, "gasBuoyancy"), sigma);
+    glUniform1f(glGetUniformLocation(buoyancyShader->Program, "gasWeight"), kappa);
     glUniform3fv(glGetUniformLocation(buoyancyShader->Program, "InverseSize"), 1, glm::value_ptr(InverseSize));
 
     glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, GRID_DEPTH);
