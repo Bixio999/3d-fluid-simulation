@@ -55,14 +55,14 @@ struct FluidEmitter
     {
         this->position = glm::vec3(0.0f);
         this->radius = 0.0f;
-        this->temperature = 1.2f;
+        this->temperature = 1.2f; // set default temperature for gas
     }
 
     FluidEmitter(glm::vec3 position, GLfloat radius)
     {
         this->position = position;
         this->radius = radius;
-        this->temperature = 1.2f;
+        this->temperature = 1.2f; // set default temperature for gas
     }
 };
 

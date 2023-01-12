@@ -355,6 +355,7 @@ void ShowStaticFluidEmitterParameter()
             // emitter radius
             ImGui::SliderFloat("Radius", &(fluidQuantities[i]->radius), 0.0f, 10.0f);
 
+            // emitter temperature if the emitter is a gas emitter
             if (targetFluid == GAS)
                 ImGui::SliderFloat("Temperature", &(fluidQuantities[i]->temperature), -5.0f, 10.0f);
 
