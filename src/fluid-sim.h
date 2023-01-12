@@ -56,7 +56,7 @@ Slab CreateSlab(GLuint width, GLuint height, GLuint depth, GLushort dimensions);
 Slab Create2DSlab(GLuint width, GLuint height, GLushort dimensions, bool filter);
 
 // destroy a simulation grid slab
-void DestroySlab(Slab *slab);
+void DestroySlab(Slab &slab);
 
 // clear the given simulation grid slabss
 void ClearSlabs(int nSlabs, ...);
@@ -65,7 +65,7 @@ void ClearSlabs(int nSlabs, ...);
 Scene CreateScene(GLuint width, GLuint height);
 
 // swap the simulation grid slabs 
-void SwapSlabs(Slab *slabA, Slab *slabB);
+void SwapSlabs(Slab &slabA, Slab &slabB);
 
 // define the simulation grid size
 void SetGridSize(GLuint width, GLuint height, GLuint depth);
@@ -83,34 +83,34 @@ void EndSimulation();
 // we define the simulation functions
 
 // execute advection with semi-lagrangian scheme
-void Advect(Shader* advectionShader, Slab *velocity, ObstacleSlab *obstacle, Slab *source, Slab *dest, float dissipation, float timeStep);
+void Advect(Shader &advectionShader, Slab &velocity, ObstacleSlab &obstacle, Slab &source, Slab &dest, float dissipation, float timeStep);
 
 // execute advection with mac-cormack scheme
-void AdvectMacCormack(Shader* advectionShader, Shader* macCormackShader, Slab *velocity, Slab *phi1_hat, Slab *phi2_hat, ObstacleSlab *obstacle, Slab* source, Slab* dest, float dissipation, float timeStep);
+void AdvectMacCormack(Shader &advectionShader, Shader &macCormackShader, Slab &velocity, Slab &phi1_hat, Slab &phi2_hat, ObstacleSlab &obstacle, Slab &source, Slab &dest, float dissipation, float timeStep);
 
 // execute buoyancy
-void Buoyancy(Shader* buoyancyShader, Slab *velocity, Slab *temperature, Slab *density, Slab *dest, float ambientTemperature, float timeStep, float sigma, float kappa);
+void Buoyancy(Shader &buoyancyShader, Slab &velocity, Slab &temperature, Slab &density, Slab &dest, float ambientTemperature, float timeStep, float sigma, float kappa);
 
 // execute divergence
-void Divergence(Shader* divergenceShader, Slab *velocity, Slab *divergence, ObstacleSlab *obstacle, Slab *obstacleVelocity, Slab *dest);
+void Divergence(Shader &divergenceShader, Slab &velocity, Slab &divergence, ObstacleSlab &obstacle, Slab &obstacleVelocity, Slab &dest);
 
 // execute jacobi
-void Jacobi(Shader* jacobiShader, Slab *pressure, Slab *divergence, ObstacleSlab *obstacle, Slab *dest, GLuint iterations);
+void Jacobi(Shader &jacobiShader, Slab &pressure, Slab &divergence, ObstacleSlab &obstacle, Slab &dest, GLuint iterations);
 
 // apply external forces
-void ApplyExternalForces(Shader* externalForcesShader, Slab *velocity, Slab *dest, float timeStep, glm::vec3 force, glm::vec3 position, float radius);
+void ApplyExternalForces(Shader &externalForcesShader, Slab &velocity, Slab &dest, float timeStep, glm::vec3 force, glm::vec3 position, float radius);
 
 // add density
-void AddDensity(Shader* dyeShader, Slab *density, Slab *dest, glm::vec3 position, float radius, float color, GLboolean isLiquidSimulation);
+void AddDensity(Shader &dyeShader, Slab &density, Slab &dest, glm::vec3 position, float radius, float color, GLboolean isLiquidSimulation);
 
 // apply pressure
-void ApplyPressure(Shader* pressureShader, Slab *velocity, Slab *pressure, ObstacleSlab *obstacle, Slab *obstacleVelocity, Slab *dest);
+void ApplyPressure(Shader &pressureShader, Slab &velocity, Slab &pressure, ObstacleSlab &obstacle, Slab &obstacleVelocity, Slab &dest);
 
 /////////////////////////////////////////////
 // we define the gas-exlusive simulation functions
 
 // add temperature
-void AddTemperature(Shader *dyeShader, Slab *temperature, Slab *dest, glm::vec3 position, float radius, float appliedTemperature);
+void AddTemperature(Shader &dyeShader, Slab &temperature, Slab &dest, glm::vec3 position, float radius, float appliedTemperature);
 
 /////////////////////////////////////////////
 // we define the liquid-exclusive simulation functions

@@ -438,7 +438,7 @@ int main()
 
             if (prevTarget == GAS)
             {
-                DestroySlab(&temperature_slab);
+                DestroySlab(temperature_slab);
 
                 temperatureShader->Delete();
                 buoyancyShader->Delete();
@@ -521,18 +521,18 @@ int main()
             BeginSimulation();
 
             // advect velocity
-            AdvectMacCormack(&advectionShader, &macCormackShader, &velocity_slab, &phi1_hat_slab, &phi2_hat_slab, &obstacle_slab, &velocity_slab, &temp_velocity_slab, velocityDissipation, timeStep);
+            AdvectMacCormack(advectionShader, macCormackShader, velocity_slab, phi1_hat_slab, phi2_hat_slab, obstacle_slab, velocity_slab, temp_velocity_slab, velocityDissipation, timeStep);
             
             // advect gas density or liquid level set
-            AdvectMacCormack(&advectionShader, &macCormackShader, &velocity_slab, &phi1_hat_slab, &phi2_hat_slab, &obstacle_slab, &density_slab, &temp_pressure_divergence_slab, densityDissipation, timeStep);
+            AdvectMacCormack(advectionShader, macCormackShader, velocity_slab, phi1_hat_slab, phi2_hat_slab, obstacle_slab, density_slab, temp_pressure_divergence_slab, densityDissipation, timeStep);
            
             if (currTarget == GAS)
             {
                 // advect temperature
-                AdvectMacCormack(&advectionShader, &macCormackShader, &velocity_slab, &phi1_hat_slab, &phi2_hat_slab, &obstacle_slab, &temperature_slab, &temp_pressure_divergence_slab, temperatureDissipation, timeStep);
+                AdvectMacCormack(advectionShader, macCormackShader, velocity_slab, phi1_hat_slab, phi2_hat_slab, obstacle_slab, temperature_slab, temp_pressure_divergence_slab, temperatureDissipation, timeStep);
 
                 // we apply the buoyancy force
-                Buoyancy(buoyancyShader, &velocity_slab, &temperature_slab, &density_slab, &temp_velocity_slab, ambientTemperature, timeStep, dampingBuoyancy, ambientWeight);
+                Buoyancy(*buoyancyShader, velocity_slab, temperature_slab, density_slab, temp_velocity_slab, ambientTemperature, timeStep, dampingBuoyancy, ambientWeight);
             }
             else
             {
@@ -550,8 +550,8 @@ int main()
                 {
                     if (fluidQuantity->radius > 0.0f)
                     {
-                        AddDensity(&dyeShader, &density_slab, &temp_pressure_divergence_slab, fluidQuantity->position, fluidQuantity->radius, dyeColor, GL_FALSE);
-                        AddTemperature(temperatureShader, &temperature_slab, &temp_pressure_divergence_slab, fluidQuantity->position, fluidQuantity->radius, fluidQuantity->temperature);
+                        AddDensity(dyeShader, density_slab, temp_pressure_divergence_slab, fluidQuantity->position, fluidQuantity->radius, dyeColor, GL_FALSE);
+                        AddTemperature(*temperatureShader, temperature_slab, temp_pressure_divergence_slab, fluidQuantity->position, fluidQuantity->radius, fluidQuantity->temperature);
                     }
                 });
             }
@@ -564,7 +564,7 @@ int main()
                     {
                         // we draw the level set as gaussian splat in the density buffer by adding a negative value equal to the radius
                         // this will create a level set consistent to its definition (negative inside and equal to surface distance, positive outside)
-                        AddDensity(&dyeShader, &density_slab, &temp_pressure_divergence_slab, fluidQuantity->position, fluidQuantity->radius, -fluidQuantity->radius, GL_TRUE);
+                        AddDensity(dyeShader, density_slab, temp_pressure_divergence_slab, fluidQuantity->position, fluidQuantity->radius, -fluidQuantity->radius, GL_TRUE);
                     }
                 });
 
@@ -577,18 +577,18 @@ int main()
             {
                 if (externalForce->radius > 0.0f && externalForce->strength > 0.0f)
                 {
-                    ApplyExternalForces(&externalForcesShader, &velocity_slab, &temp_velocity_slab, timeStep, externalForce->direction * externalForce->strength, externalForce->position, externalForce->radius);
+                    ApplyExternalForces(externalForcesShader, velocity_slab, temp_velocity_slab, timeStep, externalForce->direction * externalForce->strength, externalForce->position, externalForce->radius);
                 }
             });
 
             // we update the divergence texture
-            Divergence(&divergenceShader, &velocity_slab, &divergence_slab, &obstacle_slab, &obstacle_velocity_slab, &temp_pressure_divergence_slab);
+            Divergence(divergenceShader, velocity_slab, divergence_slab, obstacle_slab, obstacle_velocity_slab, temp_pressure_divergence_slab);
 
             // we update the pressure texture
-            Jacobi(&jacobiShader, &pressure_slab, &divergence_slab, &obstacle_slab, &temp_pressure_divergence_slab, pressureIterations);
+            Jacobi(jacobiShader, pressure_slab, divergence_slab, obstacle_slab, temp_pressure_divergence_slab, pressureIterations);
 
             // we apply the pressure projection
-            ApplyPressure(&pressureShader, &velocity_slab, &pressure_slab, &obstacle_slab, &obstacle_velocity_slab, &temp_velocity_slab);
+            ApplyPressure(pressureShader, velocity_slab, pressure_slab, obstacle_slab, obstacle_velocity_slab, temp_velocity_slab);
 
             // reset the state
             EndSimulation();
