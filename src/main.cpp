@@ -748,22 +748,27 @@ int main()
         // we combine the fluid rendering with the scene rendering
         BlendRendering(blendingShader, scene, fluidScene, rayDataBack, inverseScreenSize);
 
-        // we render the front faces of the fluid volume
-        glEnable(GL_BLEND);
-        glEnable(GL_CULL_FACE);
+        // we render the front faces of the fluid volume if the 
+        // post process effect is not denoising due to flickering
+        if (liquidEffect != DENOISE)
+        {
+            glEnable(GL_BLEND);
+            glEnable(GL_CULL_FACE);
 
-        fillShader.Use();
+            fillShader.Use();
 
-        glUniformMatrix4fv(glGetUniformLocation(fillShader.Program, "model"), 1, GL_FALSE, glm::value_ptr(glm::scale(cubeModelMatrix, glm::vec3(1.001f, 1.001f, 1.001f))));
-        glUniformMatrix4fv(glGetUniformLocation(fillShader.Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
-        glUniformMatrix4fv(glGetUniformLocation(fillShader.Program, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
-        glUniform4fv(glGetUniformLocation(fillShader.Program, "color"), 1, glm::value_ptr(glm::vec4(1.0f, 1.0f, 1.0f, 0.1f)));
+            glUniformMatrix4fv(glGetUniformLocation(fillShader.Program, "model"), 1, GL_FALSE, glm::value_ptr(glm::scale(cubeModelMatrix, glm::vec3(1.001f, 1.001f, 1.001f))));
+            glUniformMatrix4fv(glGetUniformLocation(fillShader.Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
+            glUniformMatrix4fv(glGetUniformLocation(fillShader.Program, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
+            glUniform4fv(glGetUniformLocation(fillShader.Program, "color"), 1, glm::value_ptr(glm::vec4(1.0f, 1.0f, 1.0f, 0.1f)));
 
-        glCullFace(GL_BACK);
-        cubeModel.Draw();
+            glCullFace(GL_BACK);
+            cubeModel.Draw();
 
-        glDisable(GL_BLEND);
-        glDisable(GL_CULL_FACE);
+            glDisable(GL_BLEND);
+            glDisable(GL_CULL_FACE);
+
+        }
 
         //////////////////////////////// STEP 7 - RENDERING THE UI AND FINAL OPERATIONS ////////////////////////////////////////////////
 
