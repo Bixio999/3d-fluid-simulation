@@ -46,6 +46,24 @@ struct FluidEmitter
 {
     glm::vec3 position;
     GLfloat radius;
+
+    // gas exclusive parameters
+    GLfloat temperature;
+
+    // constructors 
+    FluidEmitter()
+    {
+        this->position = glm::vec3(0.0f);
+        this->radius = 0.0f;
+        this->temperature = 1.2f;
+    }
+
+    FluidEmitter(glm::vec3 position, GLfloat radius)
+    {
+        this->position = position;
+        this->radius = radius;
+        this->temperature = 1.2f;
+    }
 };
 
 // default parameters for the simulation grid

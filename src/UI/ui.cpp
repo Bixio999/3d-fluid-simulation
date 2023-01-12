@@ -355,6 +355,9 @@ void ShowStaticFluidEmitterParameter()
             // emitter radius
             ImGui::SliderFloat("Radius", &(fluidQuantities[i]->radius), 0.0f, 10.0f);
 
+            if (targetFluid == GAS)
+                ImGui::SliderFloat("Temperature", &(fluidQuantities[i]->temperature), -5.0f, 10.0f);
+
             // delete button
             if (ImGui::Button("Delete"))
             {
@@ -370,7 +373,7 @@ void ShowStaticFluidEmitterParameter()
     // create a new emitter
     if (ImGui::Button("Add Fluid"))
     {
-        fluidQuantities.push_back(new FluidEmitter { glm::vec3(0.0f), 0.0f});
+        fluidQuantities.push_back(new FluidEmitter());
     }
 }
 
@@ -592,7 +595,7 @@ void CustomUI()
         ResetParameters();
     } ImGui::SameLine();
 
-    if (ImGui::Button("Reset forces and dyes"))
+    if (ImGui::Button("Reset forces and emitters"))
         ResetForcesAndEmitters(targetFluid);
 
     ////////////////////////////////

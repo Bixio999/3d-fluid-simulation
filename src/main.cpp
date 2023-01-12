@@ -551,7 +551,7 @@ int main()
                     if (fluidQuantity->radius > 0.0f)
                     {
                         AddDensity(&dyeShader, &density_slab, &temp_pressure_divergence_slab, fluidQuantity->position, fluidQuantity->radius, dyeColor, GL_FALSE);
-                        AddTemperature(temperatureShader, &temperature_slab, &temp_pressure_divergence_slab, fluidQuantity->position, fluidQuantity->radius, dyeColor);
+                        AddTemperature(temperatureShader, &temperature_slab, &temp_pressure_divergence_slab, fluidQuantity->position, fluidQuantity->radius, fluidQuantity->temperature);
                     }
                 });
             }
