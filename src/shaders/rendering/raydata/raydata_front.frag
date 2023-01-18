@@ -22,9 +22,9 @@
     by simply adding 1 to each component and dividing by 2. Two final steps for
     the transformation is to invert the z component, because the z axis of the
     texture space is inverted with respect to the z axis of the world space, and
-    to clamp the position to the range [0.5, grid_size - 0.5], because the 
+    to transform the position to the range [0.5, grid_size - 0.5], because the 
     texture space is a discrete space, so the position of the ray must be
-    clamped to the nearest voxel center. 
+    aligned to the nearest voxel center. 
     To handle the case where the camera is inside the fluid volume, we store
     in the w component of the texture the negate depth of the position in the 
     raydata back and we copy this value when creating the raydata front, so that
@@ -58,9 +58,9 @@ in vec3 texPos; // Position in texture space
 
 uniform vec2 InverseSize; // Inverse of the size of the viewport
 
-// Apply the texture space clamping to the given position
+// Apply the texture space alignment to the given position
 // in order to obtain the coordinates in the discrete space
-vec3 TextureVoxelClamp(vec3 pos)
+vec3 TextureVoxelAlign(vec3 pos)
 {
     pos *= (grid_size - 1.0);
     pos += 0.5;
@@ -78,7 +78,7 @@ void main()
     float sceneDepth = texture(SceneDepthTexture, InverseSize * gl_FragCoord.xy).r;
 
     // Compute the position of the ray start in discrete texture space
-    vec3 pos = TextureVoxelClamp(texPos);
+    vec3 pos = TextureVoxelAlign(texPos);
 
     // If the depth of the scene is less than the depth of the fragment,
     // set the position of the ray start as a negative value

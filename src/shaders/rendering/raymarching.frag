@@ -167,9 +167,9 @@ float rand(vec2 co){
     return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453);
 }
 
-// Apply the texture space clamping to the given position
+// Apply the texture space alignment to the given position
 // in order to obtain the coordinates in the discrete space
-vec3 TextureVoxelClamp(vec3 pos)
+vec3 TextureVoxelAlign(vec3 pos)
 {
     pos *= (grid_size - 1.0);
     pos += 0.5;
@@ -503,7 +503,7 @@ void main()
         start = clamp(start, 0.0, 1.0);
 
         // Apply the coordinate discretization
-        start = TextureVoxelClamp(start);
+        start = TextureVoxelAlign(start);
 
         // Compute the ray direction
         dir = raydata.xyz - start;
@@ -515,7 +515,7 @@ void main()
             discard;
 
         // Compute the start position of the ray
-        start = TextureVoxelClamp(texPos);
+        start = TextureVoxelAlign(texPos);
 
         // Compute the ray direction
         dir = raydata.xyz;
