@@ -2,6 +2,7 @@
 
 // Std. Includes
 #include <string>
+#include <stdarg.h>
 
 //////////////////////////////////////
 // we define the simulation parameters
