@@ -5,7 +5,7 @@
 *.slo
 *.lo
 *.o
-*.obj
+# *.obj
 *.ilk
 *.lib
 *.exp
@@ -62,7 +62,6 @@ include/*
 !include/utils
 !include/imgui
 libs
-textures
 notes
 3d-fluid-simulation.code-workspace
 imgui.ini
