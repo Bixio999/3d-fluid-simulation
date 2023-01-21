@@ -598,7 +598,7 @@ Finally, we briefly describe the rendering strategy for the simulation cube, whi
 
 ### Conclusion
 
-Thanks to the work of Harris and Crane, et al., they demonstrated that physically based fluid animation can be successfully introduced in real-time application with the help of GPU's huge computational power. The approaches they proposed were incredibly interesting and popular at their time, opening the path to the even more realistic techniques we can observe nowadays. 
+Thanks to the works of Harris and Crane, et al., they demonstrated that physically based fluid animation can be successfully introduced in real-time application with the help of GPU's huge computational power. The approaches they proposed were incredibly interesting and popular at their time, opening the path to the even more realistic techniques we can observe nowadays. 
 
 Even them admitted that a lot of work can still be done from their approach, with the introduction of optimizations thanks to data structures, algorithms and more. Still, their goal was exactly to present a starting point for this topic, to be then expansed and refined even further. For example, the approaches they discussed can be immediately applied to simulate flames, which is a phenomena with similar behavior to fluids, in order to represent their movement for visual along a multi-positional lighting system to describe the light emitted from them.
 

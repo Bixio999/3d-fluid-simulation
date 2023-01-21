@@ -138,9 +138,6 @@ GLfloat lastSimulationUpdate = 0.0f;
 // boolean to start/stop animated rotation on Y angle
 GLboolean spinning = GL_TRUE;
 
-// boolean to activate/deactivate wireframe rendering
-GLboolean wireframe = GL_FALSE;
-
 // View matrix: the camera moves, so we just set to indentity now
 glm::mat4 view = glm::mat4(1.0f);
 
@@ -648,13 +645,6 @@ int main()
         // we "clear" the frame and z buffer
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        // we set the rendering mode
-        if (wireframe)
-            // Draw in wireframe
-            glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-        else
-            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-
         // if animated rotation is activated, than we increment the rotation angle using delta time and the rotation speed parameter
         if (spinning)
             orientationY+=(deltaTime*spin_speed);
@@ -1036,10 +1026,6 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
     // if P is pressed, we start/stop the animated rotation of models
     if(key == GLFW_KEY_P && action == GLFW_PRESS)
         spinning=!spinning;
-
-    // if L is pressed, we activate/deactivate wireframe rendering of models
-    if(key == GLFW_KEY_L && action == GLFW_PRESS)
-        wireframe=!wireframe;
 
     // pressing a key number, we change the shader applied to the models
     // if the key is between 1 and 9, we proceed and check if the pressed key corresponds to
