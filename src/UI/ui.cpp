@@ -227,7 +227,7 @@ void ShowLiquidParameters()
         ImGui::SliderFloat("Acceleration Factor", &gravityAcceleration, 0.0f, 15.0f);
 
         // gravity level set threshold
-        ImGui::SliderFloat("Level Set Threshold", &gravityLevelSetThreshold, 0.0f, 10.0f);
+        ImGui::SliderFloat("Level Set Threshold", &gravityLevelSetThreshold, 0.0f, GRID_DEPTH * 0.5f);
 
         ImGui::TreePop();
     }
@@ -277,7 +277,7 @@ void ShowGasParameters()
         ImGui::SliderFloat("Weight Factor", &ambientWeight, 0.0f, 1.0f);
 
         // ambient temperature
-        ImGui::SliderFloat("Ambient Temperature", &ambientTemperature, 0.0f, 1.0f);
+        ImGui::SliderFloat("Ambient Temperature", &ambientTemperature, -5.0f, 20.0f);
 
         ImGui::TreePop();
     }
@@ -357,7 +357,7 @@ void ShowStaticFluidEmitterParameter()
 
             // emitter temperature if the emitter is a gas emitter
             if (targetFluid == GAS)
-                ImGui::SliderFloat("Temperature", &(fluidQuantities[i]->temperature), -5.0f, 10.0f);
+                ImGui::SliderFloat("Temperature", &(fluidQuantities[i]->temperature), -5.0f, 20.0f);
 
             // delete button
             if (ImGui::Button("Delete"))

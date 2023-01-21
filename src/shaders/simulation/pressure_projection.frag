@@ -89,6 +89,7 @@ void main()
         // Initialize the mask
         vec3 obsMask = vec3(1.0);
 
+        // Free-slip boundary conditions: 
         // Check if the neighboring cells are obstacles, and if they are, set
         // the pressure of the obstacle cell to the pressure of the current cell
         // and set the merged obstacle velocity component to the obstacle velocity
