@@ -732,7 +732,7 @@ t = \sum_{i = -r}^{r}G(\vec x + i)
 
 In the proposed application, the post-process effect and their respective parameters can be selected from the GUI, allowing to personally test and observe the discussed results.
 
-| ![Schermata 2023-01-22 alle 00.50.27](./assets/Schermata 2023-01-22 alle 00.50.27.png) | ![Schermata 2023-01-22 alle 00.50.57](./assets/Schermata 2023-01-22 alle 00.50.57.png) | ![Schermata 2023-01-22 alle 00.53.23](./assets/Schermata 2023-01-22 alle 00.53.23.png) |
+| <img src="./assets/Schermata 2023-01-22 alle 00.50.27.png" alt="Schermata 2023-01-22 alle 00.50.27" /> | <img src="./assets/Schermata 2023-01-22 alle 00.50.57.png" alt="Schermata 2023-01-22 alle 00.50.57" /> | <img src="./assets/Schermata 2023-01-22 alle 00.53.23.png" alt="Schermata 2023-01-22 alle 00.53.23" /> |
 | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ |
 
 <figcaption><b>Fig.7 - Post-processing effect comparison. <br>Left: none. Center: Blur. Right: Smart DeNoise.</b></figcaption>
