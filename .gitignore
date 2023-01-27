@@ -58,10 +58,6 @@ Temporary Items
 
 # custom
 
-include/*
-!include/utils
-!include/imgui
-libs
 notes
 3d-fluid-simulation.code-workspace
 imgui.ini

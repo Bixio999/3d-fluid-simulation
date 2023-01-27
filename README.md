@@ -10,11 +10,84 @@ January 5, 2023
 
 ### Abstract
 
-This paper discusses the approach presented by Crane, Llamas, and Tariq for real-time simulation and rendering of 3D fluids. In this project, the main focus was on liquid and gas/smoke simulation, but the code developed is as modular as possible, allowing it to be extended to other fluids or similar effects such as fire. 
+This project is based on the approach presented by Crane, Llamas, and Tariq for real-time simulation and rendering of 3D fluids. The main focus was on liquid and gas/smoke simulation, but the code developed is as modular as possible, allowing it to be extended to other fluids or similar effects such as fire. 
 
-The objective of this paper is to explain the algorithms used for simulation and the techniques adopted for rendering, including the system for handling dynamic obstacles and how they can interact with fluids.
+The objective of the following report is to explain the algorithms used for simulation and the techniques adopted for rendering, including the system for handling dynamic obstacles and how they can interact with fluids.
 
 ------
+
+### How to build and run
+
+This project should offer the needed libraries and their include files for all platform (Windows and Mac on both architectures).
+
+Before building the project, please decompress Assimp library zip files located in the following folders:
+
+```
+libs/mac-arm64/libassimpd.a.zip
+
+libs/mac-intel/libassimp.a.zip
+libs/mac-intel/libassimpd.a.zip
+```
+
+It was necessary to publish them as a zip files due to the original size exceeding GitHub's limit. Once done you can proceed with building.
+
+NB: You can avoid decompressing files for platforms other than your own. For example, Windows users can simply skip this step because their libraries have not been compressed, while Mac Apple Silicon users can only decompress the first file.
+
+#### Mac Intel
+
+To build the project, run the following command inside the project's folder:
+
+```
+make -f MakefileMac-intel
+```
+
+This command should look up for its platform-specific files and build the application by creating the ` 3d-fluid-simulation.out` file.
+
+To run the application, simply run the command:
+
+```
+./3d-fluid-simulation.out
+```
+
+#### Mac ARM64 (Apple Silicon)
+
+To build the project, run the following command inside the project's folder:
+
+```
+make -f MakefileMac-arm64
+```
+
+This command should look up for its platform-specific files and build the application by creating the ` 3d-fluid-simulation.out` file.
+
+To run the application, simply run the command:
+
+```
+./3d-fluid-simulation.out
+```
+
+#### Windows
+
+Dependency: Visual Studio
+
+To build the project you simply need to double click on the ` MakefleWin.bat` file, and the terminal will automatically call Visual Studio's `nmake` to run the makefile and compile the project.
+
+Once completed, you should see the ` 3d-fluid.simulation.exe` file. To run the application, just double click on it.
+
+### Controls
+
+* Once the application is running, you are able to freely move with WASD for the position, mouse for view direction, LEFT SHIFT to going down, and SPACE for going up.
+
+* To open/close the GUI controls menu, simply press the M key.
+
+* You are also able to change the obstacles rotation speed with LEFT ARROW to decrease, and RIGHT ARROW to increase.
+
+* To stop/resume the obstacles rotation you can press the P key.
+
+All the other controls, such as for the simulation and for the obstacles, are available in the GUI controls menu.
+
+------
+
+# Report
 
 ### Introduction
 

@@ -1,0 +1,12 @@
+prefix=${pcfiledir}/../..
+
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include/bullet
+
+Name: bullet
+Description: Bullet Continuous Collision Detection and Physics Library
+Version: 3.21
+Libs: -L"${libdir}" -lBulletSoftBody -lBulletDynamics -lBulletCollision -lLinearMath
+Requires: 
+Cflags: -I"${includedir}" -I"${prefix}/include"

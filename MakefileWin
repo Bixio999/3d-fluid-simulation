@@ -11,7 +11,7 @@ FILENAME = 3d-fluid-simulation
 CC = cl.exe
 
 # Include pathk
-IDIR = ../include
+IDIR = ../include/mac-intel_win
 
 # compiler flags:
 CCFLAGS  = /Od /Zi /EHsc /MT
@@ -19,7 +19,7 @@ CCFLAGS  = /Od /Zi /EHsc /MT
 # linker flags:
 LFLAGS = /LIBPATH:../libs/win glfw3.lib assimp-vc143-mt.lib zlib.lib minizip.lib kubazip.lib bz2.lib Irrlicht.lib poly2tri.lib polyclipping.lib turbojpeg.lib libpng16.lib Bullet3Common.lib BulletCollision.lib BulletDynamics.lib LinearMath.lib gdi32.lib user32.lib Shell32.lib Advapi32.lib
 
-SOURCES = ../include/glad/glad.c fluid-sim.cpp main.cpp ./UI/ui.cpp ../include/imgui/*.cpp ../include/imgui/ImGuiFileDialog/*.cpp
+SOURCES = $(IDIR)/glad/glad.c fluid-sim.cpp main.cpp $(IDIR)/imgui/*.cpp UI/ui.cpp $(IDIR)/imgui/ImGuiFileDialog/*.cpp
 
 TARGET = $(FILENAME).exe
 
