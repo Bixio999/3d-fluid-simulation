@@ -60,7 +60,7 @@ where $\rho$ is the constant fluid density, $\nu$ is the kinematic viscosity and
 
 As hinted in the equation $(1)$, it is composed by different factors, each representing a particular property of the fluid, and this possibility allows to split the computation of the simulation into a sequence of simpler tasks, describing a sort of pipeline: 
 
-1) **Advection**: the velocity of a fluid causes the fluid to transport (to *advect*) objects, densities and other quantities along the flow, but the fluid itself is carried by the flow causing the phenomena called *self-advection*, that is the event of the fluid's velocity influcenced by the movement and evolution of itself.
+1) **Advection**: the velocity of a fluid causes the fluid to transport (to *advect*) objects, densities and other quantities along the flow, but the fluid itself is carried by the flow causing the phenomenon called *self-advection*, that is the event of the fluid's velocity influcenced by the movement and evolution of itself.
 2) **Pressure**: because the molecules of a fluid can move and push each other, when a force is applied to the fluid it does not propagate through the entire volume, but is initially applied to the molecules near the area of force and then they will spread the force by pushing other molecules, resulting in an increase in pressure that causes an acceleration in the velocity field. The term in the equation that represents this acceleration is the one submitted.
 3) **Diffusion**: fluids can behave differently depending on their *viscosity*, which represents how resistive the fluid is to flow, and exactly this resistance results in diffusion of the *momentum*. This is the meaning of the diffusion factor in equation.
 4) **External Forces**: fluids can be subjected to external factors, such as application of local forces (like the blowing of wind) for specific regions, or body forces (like gravity) that are applied to the entire fluid. In the equation, the external forces factor means the contribution of all those forces to the evolution of the fluid over time.
@@ -459,9 +459,9 @@ However, this approach results in some complications that will make harder to ma
 With these RayData textures we are able to directly get the ray's entry point from the front texture, and the direction by subtrating the ray's end point stored in the back texture from the entry point. In the proposed ray-marching shader we calculate the marching step from a distance function applied to the marching distance (that is equal to the module of the ray), that is defined as follow:
 $$
 \vec d = \frac {0.5}{\vec S} \\
-t = \frac {\vec d \cdot {abs}(\vec r)} {\|\vec r\| ^2}
+t = \frac {\vec d \cdot {\text{abs}}(\vec r)} {\|\vec r\| ^2}
 $$
-where $\vec S$ is the simulation grid resolution, $\vec r$ is the ray, $abs$ is the component-wise absolute operator, and $t$ is the marching step value. Once we have all the required data we proceed with marching through volume.
+where $\vec S$ is the simulation grid resolution, $\vec r$ is the ray, $\text{abs}$ is the component-wise absolute operator, and $t$ is the marching step value. Once we have all the required data we proceed with marching through volume.
 
 Crane's ray-marching for fluids is defined by a pair of equations that describe how the final color to display is calculated from the samples in the density field 3D texture:
 
@@ -491,9 +491,11 @@ Before discussing of the ray-marching algorithms for gases and liquids, we shoul
 
 The proposed solution in this project for this problem, inspired by Crane's, is to change the end position of the ray by comparing the cube's back faces depth with the so-called *scene distance*, that is the distance between the camera and the obstacle. However, no integrated method in OpenGL offers this property so we have to manually calculate it.
 
-In this project, all the scene geometry such as dynamic obstacles and static objects are rendered with the *deferred rendering* technique, between the fluid's simulation and rendering phases. Thanks to that we are storing the scene's color and depth in two screen-size textures both attached to a framebuffer, so we can use them during the fluid's rendering phase. In the implementation, the references for all these data are collected in the `Scene` structure. 
+In this project, all the scene geometry such as dynamic obstacles and static objects are rendered in temporary buffers between the fluid's simulation and rendering phases. Thanks to that we are storing the scene's color and depth in two screen-size textures both attached to a framebuffer, so we can use them during the fluid's rendering phase. In the implementation, the references for all these data are collected in the `Scene` structure. 
 
 Having the depth of the scene geometry easily readable solves the scene distance problem, so we can now determine the closest element between the scene obstacles and the back faces of the simulation cube. However, this does not really solve the compositing problem, because we still have to correct the end point of the ray. Fortunately, since the scene depth texture is the same size as the RayData texture, we can use the position of the fragment to compute the position of the obstacle in screen space by simply substituting the scene distance for the Z component of the fragment. Then we can approximate a point in world space by inverting the rendering transformations and calculating a corresponding point in discrete texture space that will be the new end point of the ray. 
+
+In addition, when objects in the scene face the simulation cube, the current ray-marching algorithm still marches through the volume for these pixels. To solve this problem, we can again use the scene distance to check whether its depth is less than that of the front face of the simulation cube: in this case we set the RGB channel of the output color to a negative value; then at the beginning of the ray-marching algorithm we check for the presence of a negative value in the front RayData and, if present, discard that fragment.
 
 ##### Clipping
 
@@ -508,7 +510,7 @@ $$
 t = \frac {(P_0 - L_0)\cdot \vec n } {\vec l \cdot \vec n} \\
 P_{\text{start}} = L_0 + \vec l \ t
 $$
-Since the scene composition between the simulation cube and the other geometries in the scene is somewhat complex, we again use the deferred rendering technique to store the fluid rendering in a `Scene` object, so that a specific algorithm can be run later to perform blending with them. We will discuss this more in the next section, but now we should note that when clipping occurs the front faces of the simulation cube are discarded, so the only parts rendered are the back ones. Because of this, the depth of the fluid rendering would automatically be the depth of the back fragments, causing problems when creating the final frame. To solve this, we change the depth of the fragment to the depth of the new starting point of the ray, during ray-marching shader when clipping is detected; this can be done with an additional transformation of this point from its original world space to clip space, where we can read its depth after applying the *Perspective Division*.
+Since the scene composition between the simulation cube and the other geometries in the scene is somewhat complex, we again use the render-to-texture technique to store the fluid rendering in a `Scene` object, so that a specific algorithm can be run later to perform blending with them. We will discuss this more in the next section, but now we should note that when clipping occurs the front faces of the simulation cube are discarded, so the only parts rendered are the back ones. Because of this, the depth of the fluid rendering would automatically be the depth of the back fragments, causing problems when creating the final frame. To solve this, we change the depth of the fragment to the depth of the new starting point of the ray, during ray-marching shader when clipping is detected; this can be done with an additional transformation of this point from its original world space to clip space, where we can read its depth after applying the *Perspective Division*.
 
 ##### Filtering
 
@@ -571,11 +573,11 @@ Due to the higher complexity of operations to compute in liquid simulation, we h
 
 In this project we try to solve this problem by introducing post-processing effects to apply in the fluid's color texture. The implemented effects are:
 
-* *Blur*: an effect based on the Gaussian distribution that smooth the values of an image by a weighted average of the colors in the neighborhood of the current pixel. The implemented Gaussian blur is applied with two passes, one for the horizontal direction and the other for the vertical direction. The used weights are computed from a Gaussian function that also depends on the blur radius, described by the following form:
+* *Blur*: an effect based on the Gaussian function that smooth the values of an image by a weighted average of the colors in the neighborhood of the current pixel. The implemented Gaussian blur is applied with two passes, one for the horizontal direction and the other for the vertical direction. The used weights are computed from the Gaussian function which also depends on the blur radius, as described in the following equation:
   $$
   G(\vec x) =  \frac {0.5135} {r ^{0.96}} \exp \left( \frac {-(\vec x) ^2}{2 r^2} \right)
   $$
-  where $r$ is the blur radius. Then the final color of a pixel is computed as:
+  where $r$ is the blur radius. Then the final color of a blurred pixel is computed as:
   $$
   \sum_{i = -r}^{r}G(\vec x + i) \ I(\vec x + i)
   $$
@@ -583,13 +585,20 @@ In this project we try to solve this problem by introducing post-processing effe
   Notice that the values in the coefficient fraction of the Gaussian function are empirically obtained to results in a sum of the weights that should be equal to $1$. However this does not happen for any radius and sometimes the resulting color is wrong, so in the implementation we are also correcting it in the following way:
   $$
   t = \sum_{i = -r}^{r}G(\vec x + i)
-  \\ \bold c = \left(1 - \frac{\text{fract}(\max\{1, \ t\})} {t}\right) \ \bold c 
+  \\ \bold c = \left(1 - \frac{\text{fract}(\max\{1, \ t\})} {t}\right) \ \bold c'
   $$
-  Just with the use of Blur, the final image of liquid will be drastically improved and the noise reduced. The more wider is the radius, the less noise there will be. Unfortunately, the use of Blur also results in a lose of details in the final image, so the radius value should be chosen wisely according to this compromise.
+  where $\text{fract}(x) = x - \lfloor x \rfloor$ and $\bold c'$ is the blurred color returned by the effect's function.
 
+  Just with the use of Blur, the final image of liquid will be drastically improved and the noise reduced. The more wider is the radius, the less noise there will be. Unfortunately, the use of Blur also results in a lose of details in the final image, so the radius value should be chosen wisely according to this compromise.
+  
 * *Smart DeNoise*: a spacial deNoise filter based on a circular gaussian kernel, specialized for noise reduction. When applied to the fluid rendering, the resulting image is absolutely noise-free but the amount of general blurring is not that exiting. However, compared to Blur and after tuning the parameters, a good result with edge preservation can be achieved, but this technique suffers of high computational cost that causes an huge increment in rendering latency and low performance. 
 
 In the proposed application, the post-process effect and their respective parameters can be selected from the GUI, allowing to personally test and observe the discussed results.
+
+| ![Schermata 2023-01-22 alle 00.50.27](./assets/Schermata 2023-01-22 alle 00.50.27.png) | ![Schermata 2023-01-22 alle 00.50.57](./assets/Schermata 2023-01-22 alle 00.50.57.png) | ![Schermata 2023-01-22 alle 00.53.23](./assets/Schermata 2023-01-22 alle 00.53.23.png) |
+| ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ |
+
+<figcaption><b>Fig.7 - Post-processing effect comparison. <br>Left: none. Center: Blur. Right: Smart DeNoise.</b></figcaption>
 
 ##### Scene Blending
 
@@ -614,7 +623,7 @@ Finally, we briefly describe the rendering strategy for the simulation cube, whi
 
 Thanks to the works of Harris and Crane, et al., they demonstrated that physically based fluid animation can be successfully introduced in real-time application with the help of GPU's huge computational power. The approaches they proposed were incredibly interesting and popular at their time, opening the path to the even more realistic techniques we can observe nowadays. 
 
-Even them admitted that a lot of work can still be done from their approach, with the introduction of optimizations thanks to data structures, algorithms and more. Still, their goal was exactly to present a starting point for this topic, to be then expansed and refined even further. For example, the approaches they discussed can be immediately applied to simulate flames, which is a phenomena with similar behavior to fluids, in order to represent their movement for visual along a multi-positional lighting system to describe the light emitted from them.
+Even them admitted that a lot of work can still be done from their approach, with the introduction of optimizations thanks to data structures, algorithms and more. Still, their goal was exactly to present a starting point for this topic, to be then expansed and refined even further. For example, the approaches they discussed can be immediately applied to simulate flames, which is a phenomenon with similar behavior to fluids, in order to represent their movement for visual along a multi-positional lighting system to describe the light emitted from them.
 
 Ultimately, this type of approach is yet another demonstration that the rendering pipeline can be applied to different tasks as an optimization to reduce the number of operations to be performed in the CPU to further reduce its load. By better integrating GPUs for generic computations, we could also increase the number of operations to be executed in parallel, enabling more complex solutions that will improve the realism of computer graphics.
 
