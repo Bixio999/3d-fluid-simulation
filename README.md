@@ -114,21 +114,20 @@ Since we cannot store and maintain an entire grid for each time, the key to simu
 #### Navier-Stokes equations
 
 The purpose of having a correctly simulated velocity field of a fluid is that we can describe the fliud behavior through it by using the Navier-Stokes equations for incompressible and homogenous flow, which are fluid dynamics equations based only on the velocity field thanks to the defined assumption: the simulated fluid volume must be constant in any of its sub-region at any time, and its density $\rho$ must be constant in space. With these constraints in simulation, our fluid will be correctly represented by the vector velocity field $u(\vec x, t)$ and a scalar pressure field $p(\vec x, t)$ if their state for the initial time $t = 0$ is known. The evolution of the fluid is described with the following Navier-Stokes equations:
-$$
-\begin{cases}
 
+```math
+\begin{cases}
 \frac {\partial \vec u} {\partial t} = 
 - \underbrace{ (\vec u \cdot \nabla) \vec u }_{\text{advection}}
 - \underbrace{\frac 1 \rho \nabla p }_{\text{pressure}}
 + \underbrace{\nu \nabla ^2 \vec u }_{\text{diffusion}}
 + \underbrace{\vec F}_{\text{external forces}}
 & \qquad (1) \\
-
 \nabla \cdot \vec u = 0
 & \qquad (2)
-
 \end{cases}
-$$
+```
+
 where $\rho$ is the constant fluid density, $\nu$ is the kinematic viscosity and $\vec F$ represents any external forces that act on the fluid.
 
 As hinted in the equation $(1)$, it is composed by different factors, each representing a particular property of the fluid, and this possibility allows to split the computation of the simulation into a sequence of simpler tasks, describing a sort of pipeline: 
@@ -141,65 +140,81 @@ As hinted in the equation $(1)$, it is composed by different factors, each repre
 In the presented equations, the operator $\nabla$ (nabla) assumes various meanings depending on the context it is used as shown below. Also, because we are handling with discretization of differential equations, we are adopting the finite difference approximation of derivatives to solve them with an easy implementation and fast computing.
 
 - **Gradient**: in the pressure term of the equation $(1)$, the $\nabla$ operator is used to describe the gradient of the pressure field $\nabla p$, which for a scalar field is equal to a vector composed by its partial derivatives.
-  $$
-  \nabla p = \left( \frac {\partial p} {\partial x}, \frac {\partial p} {\partial y} \right) = 
-  \left( \frac {p_{i + 1,\ j} - p _{i - 1,\  j}}{2 \ \delta x} , \frac {p_{i,\ j + 1} - p _{i,\  j - 1}}{2 \ \delta y} \right)
-  $$
+
+```math
+\nabla p = \left( \frac {\partial p} {\partial x}, \frac {\partial p} {\partial y} \right) = 
+\left( \frac {p_{i + 1,\ j} - p _{i - 1,\  j}}{2 \ \delta x} , \frac {p_{i,\ j + 1} - p _{i,\  j - 1}}{2 \ \delta y} \right)
+```
+  
   where $\delta x$ and $\delta y$ are the size of the grid cells.
 
 - **Divergence**: in the equation $(2)$ the $\nabla$ operator represents the *divergence* of the fluid, and is the rate at which fluid's density exists in a given region of space. Because we are applying it to a velocity field, it measures the net change in velocity across a surface surrounding a small piece of fluid, and the defined Navier-Stokes equation $(2)$ describes the incompressibility assumption by defining the divergence of fluid to be always equal to zero. Due to dot product, the divergence operator can be applied only to a vector field, and results in a sum of partial derivatives.
-  $$
-  \nabla \cdot \vec u = \frac {\partial u} {\partial x} + \frac {\partial v} {\partial y} = 
-  \frac {u _{i + 1,\ j} - u _{i - 1,\ j}} {2 \ \delta x} +
-  \frac {v _{i,\ j + 1} - v _{i,\ j - 1}} {2 \ \delta y}
-  $$
+
+```math
+\nabla \cdot \vec u = \frac {\partial u} {\partial x} + \frac {\partial v} {\partial y} = 
+\frac {u _{i + 1,\ j} - u _{i - 1,\ j}} {2 \ \delta x} +
+\frac {v _{i,\ j + 1} - v _{i,\ j - 1}} {2 \ \delta y}
+```
+  
   where $\vec u = (u, v)$ is a velocity vector.
 
 - **Laplacian**: computing the divergence to the results of the gradient operator leads to the Laplacian operator $\nabla ^2$, which is commonly used in physics in the form of diffusion equation, such as the heat equation. The Laplace equation is originated from the Poisson equations of the form $\nabla ^2 x = b$, where $b = 0$, and represents the origin of the Laplacian operator. When the Laplacian operator is applied to a vector field composed by squared grid cells, it can be simplified to the following formula:
-  $$
-  \nabla ^2 p = \frac {p_{i + 1,\ j} + p_{i - 1,\ j} + p_{i,\ j + 1} + p_{i,\ j - 1} - 4 p_{i,\ j}} 
-  {(\delta x) ^2}
-  $$
+
+```math
+\nabla ^2 p = \frac {p_{i + 1,\ j} + p_{i - 1,\ j} + p_{i,\ j + 1} + p_{i,\ j - 1} - 4 p_{i,\ j}} 
+{(\delta x) ^2}
+```
+  
   To simplify the calculation, the operator can be applied separately to each component of the vector field, resulting in the following form: 
-  $$
-  \nabla ^2p = \frac {\partial ^2 p} {\partial x ^2 } +
-  \frac {\partial ^2 p} {\partial y ^2 } = 
-  \frac {p_{i + 1,\ j} - 2p_{i,\ j} + p_{i-1,\ j}} {(\delta x)^2} + 
-  \frac {p_{i,\ j + 1} - 2p_{i,\ j} + p_{i,\ j-1}} {(\delta y)^2}
-  $$
+  
+```math
+\nabla ^2p = \frac {\partial ^2 p} {\partial x ^2 } +
+\frac {\partial ^2 p} {\partial y ^2 } = 
+\frac {p_{i + 1,\ j} - 2p_{i,\ j} + p_{i-1,\ j}} {(\delta x)^2} + 
+\frac {p_{i,\ j + 1} - 2p_{i,\ j} + p_{i,\ j-1}} {(\delta y)^2}
+```
 
 ##### Solving the equations
 
 In order to satisfy the zero divergence condition of the Navier-Stokes equation $(2)$, we must apply the *Helmholtz-Hodge Decomposition Theorem* to decompose the vector velocity field in a sum of vector fields, which one of them is divergence free and what we are interested for. The theorem states the following:
 
 > Let $D$ be the region in space (or plane), on which the fluid is defined. Let this region have a differentiable boundary $\partial D$ with normal direction $\vec n$, a vector field $\vec w$ on $D$ can be uniquely decomposed in the form:
-> $$
+
+> ```math
 > \begin {align}
 > \vec w = \vec u + \nabla p &&&& \qquad (3)
 > \end {align}
-> $$
+> ```
+
 >  where $\vec u$ has zero divergence and is parallel to $\partial D$, that is $\vec u \cdot \vec n = 0$.
 
 Since the simulation pipeline obtained from the factorization of the equation $(1)$ results in a vector field $\vec w$ with nonzero divergence, thanks to this theorem we are able to correct it by subtracting the gradient of the resulting pressure field:
-$$
+
+```math
 \vec u = \vec w - \nabla p
-$$
+```
+
 Also, we can define a formula to calculate the pressure field from the equation $(3)$ by appling the divergence operator to both members, resulting in the following:
-$$
+
+```math
 \nabla \cdot \vec w = \nabla \cdot (\vec u + \nabla p) = \underbrace{\nabla \cdot \vec u}_{= \ 0} + \nabla ^2p \ \implies
 \nabla ^2 p = \nabla \cdot \vec w
-$$
+```
+
 which we know to be a Poisson equation, called *Poisson-pressure equation*.
 
 To solve the equation $(3)$ and find a method to calculate $\vec w$, we define a projection operator $\mathbb{P}$ based on the Helmholtz-Hodge theorem as following:
-$$
+
+```math
 \mathbb{P}\vec w = \vec u \ | \ 
 \nabla \cdot \vec u = 0
-$$
+```
+
 where $\vec w$ is a vector field, and $\vec u$ is its divergence-free component.
 
 Applying the projection operator to the equation $(1)$ we are able to obtain a differential equation that results in a divergence-free velocity field, and describes the entire simulation algorithm we need:
-$$
+
+```math
 \underbrace{\mathbb P \frac {\partial \vec u} {\partial t}} _{ = \frac {\partial \vec u} {\partial t}}
 = \mathbb P \left( 
 - (\vec u \cdot \nabla ) \vec u 
@@ -215,7 +230,8 @@ $$
 + \vec F \right)
 &&& \qquad (4)
 \end{align}
-$$
+```
+
 Equation $(4)$ let us solve the Navier-Stokes equation $(1)$ to obtain a vector velocity field which is divergence-free, that satisfies the assumtions we defined for our simulation. Also, suggests a new simulation pipeline for our goal composed by the following steps:
 
 1. Advection of the current velocity field $ \vec u(t)$ 
@@ -228,14 +244,17 @@ We now need to explicitely define the equations for each of these steps, in orde
 ##### Advection
 
 Being the advection the process by which the velocity of a fluid transports itself and other quantities, this operation results in a sort of movement for each particle of our fluid in the grid, where a single cell grid represents a fluid particle. It would be legitimate to think solving this problem through forward Euler's method, obtaining an equation of the following form:
-$$
+
+```math
 \vec r (t + \delta t) = \vec r(t) + \vec u (t) \delta t
-$$
+```
+
 However, this kind of method is not spendable for this particular task not only because is extremely susceptible and unstable for large time step, which will harm the flexibility and determinism of the algorithm, but also is unrealizable from a GPU point of view due to the constraint of shaders to fixed fragments, leading to the impossibility to write over a different location than the initial one. As solution for this problem we refer to the algorithm proposed by Stam, which suggests to update each particle not forward but back in time, by copying the quantity of the estimated position of each particle in the previous time step.
-$$
+
+```math
 u(\vec x, t + \delta t) = u (\underbrace{\vec x - u(\vec x , t)\cdot \delta t}_{\text{previous position}}
 , \ t)
-$$
+```
 
 <figure align = "center">
 <img src="./assets/image-20230121174806639.png" alt="image-20230121174806639" style="zoom:90%;" />
@@ -246,17 +265,21 @@ $$
 ##### Viscous Diffusion and Pressure
 
 In a similar way of advection, viscous diffusion cannot be solved by simply adapting the differential equation to forward Euler's method, so we directly start our observations from Stam's proposal:
-$$
-(\bold I - \nu \delta t \nabla ^2) \  \vec u (\vec x, t + \delta t) = \vec u (\vec x, t) 
-$$
-where $\bold I$ is the identity matrix.
 
-This equation can be treated as Poisson equation for velocity, and so we can introduce an iterative relaxation technique to approximate its solution. These equations are of the form $\bold A \ \vec x = \vec b$, where $\bold A$ is a matrix, $\vec x$ is the vector we need, and $\vec b$ is a vector of constants. A very simple but effective iterative solution technique is the so-called *Jacobi iteration*, that is able to solve Poisson equations with some easy-to-compute calculation (even lighter in computation when executed by GPU), which is discretized using the Laplacian operator in the following form: 
-$$
+```math
+(\boldsymbol I - \nu \delta t \nabla ^2) \  \vec u (\vec x, t + \delta t) = \vec u (\vec x, t) 
+```
+
+where $\boldsymbol I$ is the identity matrix.
+
+This equation can be treated as Poisson equation for velocity, and so we can introduce an iterative relaxation technique to approximate its solution. These equations are of the form $\boldsymbol A \ \vec x = \vec b$, where $\boldsymbol A$ is a matrix, $\vec x$ is the vector we need, and $\vec b$ is a vector of constants. A very simple but effective iterative solution technique is the so-called *Jacobi iteration*, that is able to solve Poisson equations with some easy-to-compute calculation (even lighter in computation when executed by GPU), which is discretized using the Laplacian operator in the following form: 
+
+```math
 x_{i,j}^{k + 1} = 
 \frac { x_{i-1,\ j}^{k} + x_{i+1,\ j}^{k} + x_{i,\ j-1}^{k} + x_{i,\ j+1}^{k} +\alpha\  b_{i,j} }
 {\beta}
-$$
+```
+
  where $\alpha$ and $\beta$ are constants and $k$ is the iteration number. In the case of Poisson equation for velocity, those constants and variables assume the values of:
 
 * $x$ and $b$ are both represented by the velocity field $\vec u$
@@ -311,20 +334,24 @@ Back to the fluid dynamics, in Crane's approach for fluid simulation the operati
 As just anticipated, the removing of the viscous diffusion step in simulation pipeline was a logic decision in order of moving the priority of fluid's evolution details to a more complex and efficient solution for the advection step: the introduction of a new solver called *MacCormack scheme*, proposed by *Selle et al*. in 2007. This algorithm, being an higher order equation, is based on adapting the previous semi-Lagrangian scheme used by Harris and previously presented by Stam, as a building block to a more precise solver that combines intermediate steps computed with it. In particular the MacCormack scheme is composed by three steps: 
 
 1. *Predictor step*: we are computing the advection the classic way, we are "moving" the fluid particles by estimating the previous position from the current.
-   $$
-   \hat \phi ^{t + \delta t} = A(\phi ^t)
-   $$
+
+```math
+\hat \phi ^{t + \delta t} = A(\phi ^t)
+```
 
 2. *Corrector step*: based on the resulting field of the previous step, we are now trying to approximate the value in the initial time $t$ from the advected field $\hat \phi ^{ t + 1}$, by using a negative time step.
-   $$
-   \hat \phi ^t = A^R(\hat \phi ^{t + \delta t}) = w (\underbrace{\vec x + u(\vec x , t)\cdot \delta t}_{\text{future position}}, \ t)
-   $$
+
+```math
+\hat \phi ^t = A^R(\hat \phi ^{t + \delta t}) = w (\underbrace{\vec x + u(\vec x , t)\cdot \delta t}_{\text{future position}}, \ t)
+```
+   
    where $w$ is the field from the predictor step, and $u$ is the velocity field.
 
 3. The last step is the calculation of the final advection values, obtained by correcting the values from the first step $\hat \phi ^{t + \delta t}$ with the average of the initial field $\phi ^t$ and the one from the second step $\hat \phi ^t$.
-   $$
-   \phi ^{t + \delta t} = \hat \phi ^{t + \delta t} + \frac {\phi ^t - \hat \phi ^t}{2}
-   $$
+
+```math
+\phi ^{t + \delta t} = \hat \phi ^{t + \delta t} + \frac {\phi ^t - \hat \phi ^t}{2}
+```
 
 However, compared to Stam's semi-Lagrangian scheme, this MacCormack scheme is not unconditionally stable, and there may be cases where the simulation blows up. To solve this problem we introduce a clamp to the resulting value from the advection, in order to ensure it falls within the range of the values that contribute to the semi-Lagrangian scheme: we find the minimum and maximum values in the neighborhood of the estimated position by sampling the input field $\phi^t$ exactly at their voxel centers to avoid interpolated values. 
 
@@ -341,15 +368,19 @@ Before discussing the methods, we need to make a statement: we need to distingui
 To understand how to handle with fluids in complex dynamic domains we need to observe the *domain boundaries*, that are the cell faces between a fluid cell and a solid cell. The most simple example of domain boundaries is the one also discussed by Harris: barriers placed around the perimeter of the simulation grid that prevent the fluid from simply flowing out (those that create the already mentioned "fluid in a box" effect).
 
 In order to define an actual interaction between solid and fluid, we need to impose a condition called *free-slip*, applied along the domain boundaries, and assures that the velocities of the fluid and the solid are the same in the direction normal of the boundary, that is the limitation of a fluid to flow through solids but to flow along their surfaces. This condition is expressed by the following equation:
-$$
+
+```math
 \vec u \cdot \vec n = \vec u _{\text {solid}} \cdot \vec n
-$$
+```
+
 Because the introduction of the free-slip boundary condition changes affects the pressure equation, we need to apply it to the previous pressure equation proposed by Harris and discretize the result, obtaining the following form: 
-$$
+
+```math
 \frac {\delta t} {\rho (\delta x) ^2}
 \left( \left|F_{i,j,k}\right|  p_{i,j,k} - \sum_{n \in F_{i,j,k}}p_n \right)
  = - u_{i,j,k}
-$$
+```
+
 where $F_{i,j,k}$ is the set of indices of cells adjacent from the current one.
 
 In practice, to implement this equation we cen simply introduce a condition every time we sample the pressure from a neighboring cell: if the neighbor is a solid obstacle, we set its pressure to the one of the current cell, nullifying its contribution to the new pressure equation. The same solution can be applied to the velocity solver when looking for the neighborhood.
@@ -366,7 +397,7 @@ This algorihm is inspired by the *Stencil Shadow Volume* algorithm, which is a s
 
 The stencil buffer is used in the rendering pipeline to execute the *Stencil Test*, that is an optional mask used to control the fragment color output produced by the current rendering before they are written in the output buffer. The stencil buffer can be modified through predefined *operations* offered by the GPU, and the fragments allowed to edit the stencil are decided with predefined *functions*. The Stencil Test can be used along the *Depth Test* to distinguish the three cases and set different operation based on the success or fail of both tests (both fails, depth succeed but stencil fails, both succeed).
 
-To implement the Inside-Out Voxelization we exploit the stencil operation of increment and decrement based on front or back facing fragments. In order to handle only the obstacles inside the simulation grid and obtain a representation along all the slices of the output 3D texture, we are drawing its mesh by using an orthogonal projection with far plane set to infinity (or a large value), and the near plane equal to the depth of the current slice of the texture, while the frustum is set to extend from origin to any direction by half the edge of the simulation cube. With these settings we are creating an orthogonal projection with the exact size of the simulation cube.
+To implement the Inside-Out Voxelization we exploit the stencil operation of increment and decrement based on front or back facing fragments. In order to handle only the obstacles inside the simulation grid and obtain a representation along all the slices of the output 3D texture, we are drawing its mesh by using an orthogonal projection with far plane set to inftyity (or a large value), and the near plane equal to the depth of the current slice of the texture, while the frustum is set to extend from origin to any direction by half the edge of the simulation cube. With these settings we are creating an orthogonal projection with the exact size of the simulation cube.
 
 In the proposed implementation, the projection is defined from a camera with front direction aligned with the negative Z axis (assuming the OpenGL axis reference), and positioned in front of the simulation cube at one unit of distance. This particular positioning of the camera is due to a 3D texture convention that its depth would be along the negative Z axis. 
 
@@ -389,17 +420,21 @@ Because the graphics library used for this project, that is OpenGL 4.1 Core, doe
 #### Velocity Voxelization
 
 Along with the voxelized position of dynamic obstacles, we also need to know their velocity to take them account in the fluid simulation. However we need a voxelized representation of the velocity in order to map each solid cell to a corresponding velocity. The proposed algorithm by Crane solves this problem by computing the velocity per-vertex based on the position of the obstacles between time steps, which results in an approximated instantanous velocity calculated with the forward difference, expressed by the following formula: 
-$$
+
+```math
 \vec v_i = \frac {
  \vec p^{\ t + \delta t} - \vec p^{\ t} } {\delta t}
-$$
+```
+
 The velocity calculation can be easily performed in a vertex shader by loading as input the current and previous position of the obstacle. If the obstacles animation is described by simple analytic transformation (that is the case of the proposed solution in this project) its position in time can be described by the model matrix, so we can simply store the matrix in previous time step and used it to compute the old position for each vertex of the mesh.
 
 Once we obtain the per-vertex velocitis we need a method to translate them into interpolated values for each solid cell of the simulation grid. To perform this, we can calculate the intersection between the mesh triangles and each texture slice plane: the result of each intersection will be the entire triangle, if it entirely lays on the slice plane, or a segment; in this last case we transform the segment into a quad by extruding it along the projection of the triangle face normal into the slice plane normal, and by an offset equal to the diagonal a voxel. In order to obtain those values  in the corresponding solid cells, because we are using the same mesh for the Inside-Out Voxelization we need to extrude the segment from plane intersection to the opposite direction, so the sample position of the solid cells would be the same and we will correctly sample velocity. 
-$$
+
+```math
 \vec n_{\text{proj}} = \vec n -( \vec n \cdot \vec N) \vec N \\
 \vec v = - \left( \frac {\sqrt 2 l}{S}\right) \vec n_{\text{proj}}
-$$
+```
+
 where $\vec n$ is the triangle face normal, $\vec N$ is the slice plane normal, $\vec v$ is the extrusion vector, $l$ is the edge of the simulation cube and $S$ is the simulation grid resolution (size).
 
 This kind of calculation can be implemented in a geometry shader, which get as input the triangles of the mesh along with their vertex velocity, and after the intersection with the slice plane outputs none, a point, the entire triangle or a quad from the resulting segment, which can be easily outputted from two triangles. Thanks to instancing, we are able to split the computation for each texture slice, so for each instance the shader is going to draw only those triangles  of the mesh that intersect the current slice plane. The per-vertex velocities for points from intersection are computed by interpolation.
@@ -409,9 +444,11 @@ Because this algorithm needs to elaborate all the triangles of the given mesh, a
 #### External forces
 
 Based on Harris' approach, one of the possible user interaction with the simulated fluid in this project is the application of external forces. In particular the proposed implementation represents the forces to act like wind emitters, and their alteration of the fluid velocity field is applied with a *three-dimensional Gaussian splat*: a function based on Gaussian bell-shaped distribution that weights the force intensity with a distance decay. 
-$$
+
+```math
 \vec v = \vec F \exp \left( \frac {(x - x_p) ^2 + (y - y_p)^2 + (z - z_p)^2} {2r^2} \right)
-$$
+```
+
 where $\vec F$ is the applied force, $(x_p, y_p, z_p)$ is the emitter's position, $(x,y,z)$ is the current fragment's position, and $r$ is the emitter's radius. The resulting velocity is summed to the current.
 
 The advantage of this Gaussian splat is the possibility to apply it to the entire simulation grid, because the weight will zero the resulting velocity outside the emitter's sphere. 
@@ -421,15 +458,19 @@ This method of interaction with simulation fields is also applied to implement t
 #### Gas simulation
 
 To being able to simulate a gas with the proposed approach, that is velocity based, we can use the advection scheme to "move" quantity along the fluid. In order to obtain a visual representation of smoke we use the density field to inject scalar values as gas quantities, to recognize the intensity and density of smoke in the subregions of the simulation grid. The density field will then be advected to spread the values according to the simulated fluid velocities.
-$$
+
+```math
 \frac {\partial \phi} {\partial t} = - (\vec u \cdot \nabla ) \phi
-$$
+```
+
 where $\phi$ is the density field.
 
 In order to improve the realism of the simulated gas we also introduce a physics force called *Buoyancy*, that describes how gas evolves based on its temperature compared to the ambient one: hot gas goes up, while cold gas tends to go down. To keep track of the fluid's temperature over time we need to introduce a new field to our simulation, and to compute its evolution we apply the same solution of the density field: advection. The Buoyancy force is described by the following equation:
-$$
+
+```math
 \vec f_{\text{buoyancy}} = \frac {Pmg}{R} \left( \frac 1 {T_0} - \frac 1 T \right) \vec z
-$$
+```
+
 where $P$ is the gas pressure, $m$ is the molar mass, $g$ is the gravity acceleration, $R$ is the universal gas constant, $T_0$ is the ambient temperature, $T$ is the fluid temperature and $\vec z$ is the normalized upward direction. In this equation the physical scalar constants can be treated as a single hard-coded value, while the others depend on the current state.
 
 <figure align = "center">
@@ -452,13 +493,15 @@ Also, to correctly simulate the behavior of a liquid we must introduce in the si
 This particular definition for gravity is a readaptation of the original Crane approach, which doesn't allow new fluid to be generated in the simulation but only limits to simulate the surface evolution. This required to entirely avoiding not only the gravity application on air cells but also the pressure projection. For the goals of this project, where we wanted to freely play with fluids, we readapted their approach to allow pressure projection in the entire grid and control the gravity application. About the last one, the user can edit its behavior from the GUI by changing the mentioned threshold value in order to observe how the simulation will be affected.
 
 In the end, we need to discuss an observation: because of the proposed simulation approach to pressure solver, fluid's volume can change unpredictably due to oscillations. Differently from gas simulation where this problem is almost invisible thanks to the fluid's nature and doesn't produce visible artifacts, in the case of liquid simulation these errors will result in disappearing fluids or pouring out of nowhere. This is also escalated to the impossibility of pressure to be applied on the entire fluid at the same time, in the opposite way of real liquids where the pressure applied on the bottom liquid molecules will propagate to the above, allowing to counteract the gravity. 
-Because solving exactly for pressure is impossible to reach for real-time application, we must rely on a constraint: we introduce an equilibrium level set $\phi^{\infin}$ that describes the level set values in the grid at infinite time where the liquid will converge to a static equilibrium, and use them to correct the behavior of our liquid's level set by the following rule:
-$$
+Because solving exactly for pressure is impossible to reach for real-time application, we must rely on a constraint: we introduce an equilibrium level set $\phi^{\infty}$ that describes the level set values in the grid at inftyite time where the liquid will converge to a static equilibrium, and use them to correct the behavior of our liquid's level set by the following rule:
+
+```math
 \phi^{t + \delta t}_{i,j,k} = \begin{cases}
-A(\phi^t)_{i,j,k} && \text{if } \phi^{\infin}_{i,j,k} \ge 0 \\
-(1 - \beta)A(\phi^t)_{i,j,k} + \beta \phi^{\infin}_{i,j,k} && \text{otherwise}
+A(\phi^t)_{i,j,k} && \text{if } \phi^{\infty}_{i,j,k} \ge 0 \\
+(1 - \beta)A(\phi^t)_{i,j,k} + \beta \phi^{\infty}_{i,j,k} && \text{otherwise}
 \end{cases}
-$$
+```
+
 where $A$ is the advection scheme and $\beta\in [0,1]$ is a damping factor to control the amount of correction to apply.
 
 <figure align = "center">
@@ -469,9 +512,11 @@ where $A$ is the advection scheme and $\beta\in [0,1]$ is a damping factor to co
 
 
 Because the equilibrium level set can be described by a function, introducing complex functions could improve the quality of the simulation. However, even a simple function such as the vertical distance from the bottom of the simulation grid can solve the pressure issue. Thereby this was the proposed approach in this project, where the equilibrium level set is described by the following function:
-$$
-\phi^{\infin}(x,y,z) = y - h
-$$
+
+```math
+\phi^{\infty}(x,y,z) = y - h
+```
+
 where $h$ is the desired height of the water. 
 
 Based on what we discussed above, we must also point out that the most accurate liquid simulation achievable with this approach is without the equilibrium level set: the result is unprecise for the requested liquid height because it will sink to the bottom, but there is able to show most of the realistic effects such as wave propagation over the surface. For this reason, both the equilibrium level set desired heigh and damping factor are editable from the application GUI.
@@ -501,16 +546,20 @@ Also, we recall that each object is defined in an unique space where the origin 
 The idea of the texture space is basically to convert coordinates in world space into the 3D texture's UV space. To perform this transformation we are making the following assumption: considering that our fluid simulation grid is mapped to a cube, if we describe this cube's model by vertices with coordinates in the range $[-0.5,0.5]$ then we can define a transformation from the cube's local space to our texture space. 
 
 Given a point $P$ in world space, we can transform it into the corresponding point $P_{\text{tex}}$ in texture space by the following operation:
-$$
+
+```math
 P_{\text{tex}} = 
 (-\vec z) \ \frac {(P \cdot (M^{-1})^{T}) + 1} 2
-$$
+```
+
 where $\vec z = (0,0,1)$ is the Z axis (used to correct the Z component of $P$ with a component-wise multiplication) and $M$ is the model matrix of the simulation cube. With the first product between the point and the inverse transpose of the model matrix we are transforming our point to the cube's local space, after we normalize it to the new $[0,1]$ range and adjust the Z component, obtaining in the end the texture space coordinates.
 
 Then to apply the voxel center alignment and get the coordinates in descrete texture space, we perform the final transformation as follow:
-$$
+
+```math
 P_{\text{vox}} = \frac {(S - 1)P_{\text{tex}} + 0.5} {S}
-$$
+```
+
 where $S$ is the simulation grid resolution. Once we calculate the point in the discrete texture space, we can use its coordinates to sample the target 3D texture.
 
 ##### Ray Casting
@@ -530,10 +579,12 @@ However, this approach results in some complications that will make harder to ma
 2. The front facing rendering is very similar to the first step because we also store the position of the fragment in RGB channel in discrete texture space, that is the starting point of the ray, while for the alpha channel we just copy the alpha value stored in the back RayData texture.
 
 With these RayData textures we are able to directly get the ray's entry point from the front texture, and the direction by subtrating the ray's end point stored in the back texture from the entry point. In the proposed ray-marching shader we calculate the marching step from a distance function applied to the marching distance (that is equal to the module of the ray), that is defined as follow:
-$$
+
+```math
 \vec d = \frac {0.5}{\vec S} \\
 t = \frac {\vec d \cdot {\text{abs}}(\vec r)} {\|\vec r\| ^2}
-$$
+```
+
 where $\vec S$ is the simulation grid resolution, $\vec r$ is the ray, $\text{abs}$ is the component-wise absolute operator, and $t$ is the marching step value. Once we have all the required data we proceed with marching through volume.
 
 Crane's ray-marching for fluids is defined by a pair of equations that describe how the final color to display is calculated from the samples in the density field 3D texture:
@@ -578,11 +629,13 @@ Again, the solution to this problem is inspired by the one discussed by Crane an
 
 In the absence of this data, we need to calculate a new starting point for the ray: after transforming the position of the fragment to world space, if we consider the segment from it to the camera eye and calculate the intersection between this segment and the camera's near plane, the result will always be a point; we can transform this point from world space to discrete texture space and consider it as the new starting point of the ray. 
 
-The intersection between a segment $P = L_0 + \vec l \ d, \ d \in \R $ and a plane $(P - P_0)\cdot \vec n = 0$, both in algebraic form, is achieved by the following equation: 
-$$
+The intersection between a segment $P = L_0 + \vec l \ d , \ d \in \mathbb{R}$ and a plane $(P - P_0)\cdot \vec n = 0$, both in algebraic form, is achieved by the following equation: 
+
+```math
 t = \frac {(P_0 - L_0)\cdot \vec n } {\vec l \cdot \vec n} \\
 P_{\text{start}} = L_0 + \vec l \ t
-$$
+```
+
 Since the scene composition between the simulation cube and the other geometries in the scene is somewhat complex, we again use the render-to-texture technique to store the fluid rendering in a `Scene` object, so that a specific algorithm can be run later to perform blending with them. We will discuss this more in the next section, but now we should note that when clipping occurs the front faces of the simulation cube are discarded, so the only parts rendered are the back ones. Because of this, the depth of the fluid rendering would automatically be the depth of the back fragments, causing problems when creating the final frame. To solve this, we change the depth of the fragment to the depth of the new starting point of the ray, during ray-marching shader when clipping is detected; this can be done with an additional transformation of this point from its original world space to clip space, where we can read its depth after applying the *Perspective Division*.
 
 ##### Filtering
@@ -590,17 +643,21 @@ Since the scene composition between the simulation cube and the other geometries
 A rendering artifact that appears when using the ray-marching algorithm is the so-called *banding* effect, caused by the equally spaced samples that create some sort of visible bands all over the fluid. The most obvious solution may be to increase the marching step, but that would be too expansive so we need to look for a more efficient approach.
 
 In this project, the implemented solution for this problem is a bit different than the one discussed by Crane. He proposed to smooth the effect by taking an additional sample during the ray-marching, and weight its contribution to fluid's final color by a factor proportional to the ratio between the fragment's depth and the scene depth:
-$$
+
+```math
 w = \frac {S(\vec x) - d}{t}
-$$
+```
+
 where $S$ is the scene distance calculated on the fragment's position $\vec x$, $d$ is the current distance traveled by the ray, and $t$ is the marching step.
 
 However, this method would be somewhat complex to implement for the current structure of the algorithm and, more importantly, does not really solve the problem, as Crane himself admits by discussing that a combination of other techniques had to be adopted to reduce this effect more. Thus, the solution proposed in this project is actually one of the alternative techniques mentioned by Crane, namely *Jittering*: in the case of ray-marching, jittering refers to the introduction of a random offset at the starting position of the ray in order to cancel the initial cause of the banding effect. 
 
 Since OpenGL does not provide a method for generating random numbers, the popular solution of an inline function to be implemented in shaders was chosen. This function is based on the trigonometric sine function to return pseudo-random numbers from the position of fragments in screen space, and is described by the following equation:
-$$
+
+```math
 \text{rand}(\vec x) = \left \lfloor 43758.5453 \  \sin(\vec x \cdot (12.9898, \ 78.233)^T) \right \rfloor
-$$
+```
+
 However, this method is not very reliable and mostly situational due to the absence of a seed, which results in equal numbers for equal input. Fortunately, for our purpose this does not bother us, since we only need to create a sufficiently different offset for neighboring fragments.
 
 The major consequence of jittering is the introduction of a noisy *dithering*-like effect in the resulting rendering, caused precisely by the offset added in ray-marching. Depending on the complexity of the operations to be performed during ray-marching, it is possible to find a compromise between jitter and marching step and still obtain discrete results. For example, in the case of gas rendering we were able to halve the marching step and maximum offset due to their cheaper calculation during ray-marching, and almost completely cancel the effect of noise caused by jitter.
@@ -616,16 +673,17 @@ Knowing the surface of the liquid is important to visualization reasons because 
 Also, to improve the quality of the rendering we should avoid as much as possible to grid resolution artifacts to be noticed, so we introduce a tricubic interpolation to filter values from the level set 3D texture. In this project we introduced a fast tricubic filter implementation proposed by *Ruijters et al.* that is able to calculate the values by using only 8 texture look-ups, granting high performance and stability.
 
 We can also introduce the effect of refraction for the liquid surface by looking up in the scene geometry color texture near the point being shaded and taking its value as the refracted color. This texture is sampled with coordinates obtained from an approximation of the refraction direction calculated by offset the current fragment position with a vector proportional to the projection of the surface normal described above onto the image plane. Considering a pair of versors, $\vec P_h$ and $\vec P_v$, representing an orthonormal basis for the image plane oriented with the viewport, then we can calculate the texture coordinates for the refraction color as:
-$$
+
+```math
 \begin{cases}
 \vec P_v = \frac {\vec z - (\vec z \cdot \vec V)\vec V}{\|\vec z - (\vec z \cdot \vec V)\vec V\|} \\
 \vec P_h = \vec P_v \times \vec V
 \end{cases}
-$$
+```
 
-$$
+```math
 \vec x' =  \vec x -  (\vec N \cdot \vec P_h, \ \vec N \cdot \vec P_v) ^T
-$$
+```
 
 where $\vec V$ is the camera front direction, $\vec z$ is the world up direction, $\vec x$ are the coordinates of the fragment and $\vec N$ is the surface normal. This transformation will results in a magnify effect for convex surface regions and in a shrink effect for concave regions. 
 
@@ -647,20 +705,26 @@ Due to the higher complexity of operations to compute in liquid simulation, we h
 In this project we try to solve this problem by introducing post-processing effects to apply in the fluid's color texture. The implemented effects are:
 
 * *Blur*: an effect based on the Gaussian function that smooth the values of an image by a weighted average of the colors in the neighborhood of the current pixel. The implemented Gaussian blur is applied with two passes, one for the horizontal direction and the other for the vertical direction. The used weights are computed from the Gaussian function which also depends on the blur radius, as described in the following equation:
-  $$
-  G(\vec x) =  \frac {0.5135} {r ^{0.96}} \exp \left( \frac {-(\vec x) ^2}{2 r^2} \right)
-  $$
+
+```math
+G(\vec x) =  \frac {0.5135} {r ^{0.96}} \exp \left( \frac {-(\vec x) ^2}{2 r^2} \right)
+```
+  
   where $r$ is the blur radius. Then the final color of a blurred pixel is computed as:
-  $$
-  \sum_{i = -r}^{r}G(\vec x + i) \ I(\vec x + i)
-  $$
+  
+```math
+\sum_{i = -r}^{r}G(\vec x + i) \ I(\vec x + i)
+```
+  
   where $I$ is the image to sample. 
   Notice that the values in the coefficient fraction of the Gaussian function are empirically obtained to results in a sum of the weights that should be equal to $1$. However this does not happen for any radius and sometimes the resulting color is wrong, so in the implementation we are also correcting it in the following way:
-  $$
-  t = \sum_{i = -r}^{r}G(\vec x + i)
-  \\ \bold c = \left(1 - \frac{\text{fract}(\max\{1, \ t\})} {t}\right) \ \bold c'
-  $$
-  where $\text{fract}(x) = x - \lfloor x \rfloor$ and $\bold c'$ is the blurred color returned by the effect's function.
+  
+```math
+t = \sum_{i = -r}^{r}G(\vec x + i)
+\\ \boldsymbol c = \left(1 - \frac{\text{fract}(\max\{1, \ t\})} {t}\right) \ \boldsymbol c'
+```
+  
+  where $\text{fract}(x) = x - \lfloor x \rfloor$ and $\boldsymbol c'$ is the blurred color returned by the effect's function.
 
   Just with the use of Blur, the final image of liquid will be drastically improved and the noise reduced. The more wider is the radius, the less noise there will be. Unfortunately, the use of Blur also results in a lose of details in the final image, so the radius value should be chosen wisely according to this compromise.
   
