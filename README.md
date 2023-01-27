@@ -27,11 +27,13 @@ libs/mac-arm64/libassimpd.a.zip
 
 libs/mac-intel/libassimp.a.zip
 libs/mac-intel/libassimpd.a.zip
+
+libs/win/assimp-vc143-mt.lib.zip
 ```
 
 It was necessary to publish them as a zip files due to the original size exceeding GitHub's limit. Once done you can proceed with building.
 
-NB: You can avoid decompressing files for platforms other than your own. For example, Windows users can simply skip this step because their libraries have not been compressed, while Mac Apple Silicon users can only decompress the first file.
+NB: You can avoid decompressing files for platforms other than your own. 
 
 #### Mac Intel
 
@@ -145,7 +147,7 @@ In the presented equations, the operator $\nabla$ (nabla) assumes various meanin
 \nabla p = \left( \frac {\partial p} {\partial x}, \frac {\partial p} {\partial y} \right) = 
 \left( \frac {p_{i + 1,\ j} - p _{i - 1,\  j}}{2 \ \delta x} , \frac {p_{i,\ j + 1} - p _{i,\  j - 1}}{2 \ \delta y} \right)
 ```
-  
+
   where $\delta x$ and $\delta y$ are the size of the grid cells.
 
 - **Divergence**: in the equation $(2)$ the $\nabla$ operator represents the *divergence* of the fluid, and is the rate at which fluid's density exists in a given region of space. Because we are applying it to a velocity field, it measures the net change in velocity across a surface surrounding a small piece of fluid, and the defined Navier-Stokes equation $(2)$ describes the incompressibility assumption by defining the divergence of fluid to be always equal to zero. Due to dot product, the divergence operator can be applied only to a vector field, and results in a sum of partial derivatives.
@@ -155,7 +157,7 @@ In the presented equations, the operator $\nabla$ (nabla) assumes various meanin
 \frac {u _{i + 1,\ j} - u _{i - 1,\ j}} {2 \ \delta x} +
 \frac {v _{i,\ j + 1} - v _{i,\ j - 1}} {2 \ \delta y}
 ```
-  
+
   where $\vec u = (u, v)$ is a velocity vector.
 
 - **Laplacian**: computing the divergence to the results of the gradient operator leads to the Laplacian operator $\nabla ^2$, which is commonly used in physics in the form of diffusion equation, such as the heat equation. The Laplace equation is originated from the Poisson equations of the form $\nabla ^2 x = b$, where $b = 0$, and represents the origin of the Laplacian operator. When the Laplacian operator is applied to a vector field composed by squared grid cells, it can be simplified to the following formula:
@@ -164,9 +166,9 @@ In the presented equations, the operator $\nabla$ (nabla) assumes various meanin
 \nabla ^2 p = \frac {p_{i + 1,\ j} + p_{i - 1,\ j} + p_{i,\ j + 1} + p_{i,\ j - 1} - 4 p_{i,\ j}} 
 {(\delta x) ^2}
 ```
-  
+
   To simplify the calculation, the operator can be applied separately to each component of the vector field, resulting in the following form: 
-  
+
 ```math
 \nabla ^2p = \frac {\partial ^2 p} {\partial x ^2 } +
 \frac {\partial ^2 p} {\partial y ^2 } = 
@@ -344,7 +346,7 @@ As just anticipated, the removing of the viscous diffusion step in simulation pi
 ```math
 \hat \phi ^t = A^R(\hat \phi ^{t + \delta t}) = w (\underbrace{\vec x + u(\vec x , t)\cdot \delta t}_{\text{future position}}, \ t)
 ```
-   
+
    where $w$ is the field from the predictor step, and $u$ is the velocity field.
 
 3. The last step is the calculation of the final advection values, obtained by correcting the values from the first step $\hat \phi ^{t + \delta t}$ with the average of the initial field $\phi ^t$ and the one from the second step $\hat \phi ^t$.
@@ -709,25 +711,25 @@ In this project we try to solve this problem by introducing post-processing effe
 ```math
 G(\vec x) =  \frac {0.5135} {r ^{0.96}} \exp \left( \frac {-(\vec x) ^2}{2 r^2} \right)
 ```
-  
+
   where $r$ is the blur radius. Then the final color of a blurred pixel is computed as:
-  
+
 ```math
 \sum_{i = -r}^{r}G(\vec x + i) \ I(\vec x + i)
 ```
-  
+
   where $I$ is the image to sample. 
   Notice that the values in the coefficient fraction of the Gaussian function are empirically obtained to results in a sum of the weights that should be equal to $1$. However this does not happen for any radius and sometimes the resulting color is wrong, so in the implementation we are also correcting it in the following way:
-  
+
 ```math
 t = \sum_{i = -r}^{r}G(\vec x + i)
 \\ \boldsymbol c = \left(1 - \frac{\text{fract}(\max\{1, \ t\})} {t}\right) \ \boldsymbol c'
 ```
-  
+
   where $\text{fract}(x) = x - \lfloor x \rfloor$ and $\boldsymbol c'$ is the blurred color returned by the effect's function.
 
   Just with the use of Blur, the final image of liquid will be drastically improved and the noise reduced. The more wider is the radius, the less noise there will be. Unfortunately, the use of Blur also results in a lose of details in the final image, so the radius value should be chosen wisely according to this compromise.
-  
+
 * *Smart DeNoise*: a spacial deNoise filter based on a circular gaussian kernel, specialized for noise reduction. When applied to the fluid rendering, the resulting image is absolutely noise-free but the amount of general blurring is not that exiting. However, compared to Blur and after tuning the parameters, a good result with edge preservation can be achieved, but this technique suffers of high computational cost that causes an huge increment in rendering latency and low performance. 
 
 In the proposed application, the post-process effect and their respective parameters can be selected from the GUI, allowing to personally test and observe the discussed results.

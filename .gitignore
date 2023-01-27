@@ -7,7 +7,7 @@
 *.o
 # *.obj
 *.ilk
-*.lib
+# *.lib
 *.exp
 
 # Debug symbols
